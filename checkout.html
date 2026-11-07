@@ -1,0 +1,177 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Checkout | OWO</title>
+
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="checkout.css">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@500;600;700&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+</head>
+
+<body>
+
+    <div class="announcement">
+        <p>WELCOME TO OWO — DISCOVER YOUR OWN STYLE</p>
+    </div>
+
+    <header class="navbar">
+        <a href="index.html" class="logo">OWO<span>.</span></a>
+
+        <div class="checkout-secure">
+            <i class="fa-solid fa-lock"></i> SECURE CHECKOUT
+        </div>
+    </header>
+
+
+    <main class="checkout-page">
+
+        <div class="checkout-heading">
+            <p class="eyebrow">ALMOST YOURS</p>
+            <h1>Complete Your <span>Order.</span></h1>
+            <p>Enter your details to prepare your OWO order.</p>
+        </div>
+
+
+        <div class="checkout-layout">
+
+            <!-- CUSTOMER DETAILS -->
+
+            <section class="checkout-form-section">
+
+                <form id="checkout-form">
+
+                    <div class="checkout-section">
+                        <h2><span>01</span> Contact Information</h2>
+
+                        <label for="customer-name">Full Name</label>
+                        <input type="text" id="customer-name" name="name" placeholder="Enter your full name" required>
+
+                        <label for="customer-email">Email Address</label>
+                        <input type="email" id="customer-email" name="email" placeholder="Enter your email" required>
+
+                        <label for="customer-phone">Phone Number</label>
+                        <input type="tel" id="customer-phone" name="phone" placeholder="10-digit mobile number" pattern="[0-9]{10}" maxlength="10" required>
+                    </div>
+
+
+                    <div class="checkout-section">
+                        <h2><span>02</span> Delivery Address</h2>
+
+                        <label for="address">House / Flat / Street Address</label>
+                        <textarea id="address" name="address" rows="3" placeholder="Enter your complete address" required></textarea>
+
+                        <div class="checkout-two-columns">
+
+                            <div>
+                                <label for="city">City</label>
+                                <input type="text" id="city" name="city" placeholder="City" required>
+                            </div>
+
+                            <div>
+                                <label for="state">State</label>
+                                <input type="text" id="state" name="state" placeholder="State" required>
+                            </div>
+
+                        </div>
+
+                        <label for="pincode">PIN Code</label>
+                        <input type="text" id="pincode" name="pincode" placeholder="6-digit PIN code" pattern="[0-9]{6}" maxlength="6" required>
+                    </div>
+
+
+                    <div class="checkout-section">
+                        <h2><span>03</span> Payment Method</h2>
+
+                        <label class="payment-option">
+                            <input type="radio" name="payment" value="cod" checked>
+                            <span>
+                                <strong>Cash on Delivery</strong>
+                                <small>Pay when your order arrives.</small>
+                            </span>
+                            <i class="fa-solid fa-money-bill-wave"></i>
+                        </label>
+
+                        <label class="payment-option">
+                            <input type="radio" name="payment" value="online">
+                            <span>
+                                <strong>Online Payment</strong>
+                                <small>UPI, cards and other online methods.</small>
+                            </span>
+                            <i class="fa-solid fa-credit-card"></i>
+                        </label>
+
+                    </div>
+
+                    <button type="submit" class="place-order-button">
+                        PLACE YOUR ORDER
+                        <i class="fa-solid fa-arrow-right"></i>
+                    </button>
+
+                    <p class="checkout-disclaimer">
+                        This is a development checkout. No actual payment will be collected.
+                    </p>
+
+                </form>
+
+            </section>
+
+
+            <!-- ORDER SUMMARY -->
+
+            <aside class="checkout-summary">
+
+                <h2>Your Order</h2>
+
+                <div id="checkout-products"></div>
+
+                <div class="checkout-summary-divider"></div>
+
+                <div class="checkout-summary-row">
+                    <span>Subtotal</span>
+                    <strong id="checkout-subtotal">₹0</strong>
+                </div>
+
+                <div class="checkout-summary-row">
+                    <span>Shipping</span>
+                    <strong>Calculated later</strong>
+                </div>
+
+                <div class="checkout-summary-divider"></div>
+
+                <div class="checkout-summary-row checkout-final-total">
+                    <span>Total</span>
+                    <strong id="checkout-total">₹0</strong>
+                </div>
+
+                <a href="cart.html" class="back-to-cart">
+                    <i class="fa-solid fa-arrow-left"></i> RETURN TO BAG
+                </a>
+
+            </aside>
+
+        </div>
+
+    </main>
+
+
+    <footer class="footer">
+        <div class="footer-bottom">
+            <p>© 2026 OWO. ALL RIGHTS RESERVED.</p>
+            <p>SECURE CHECKOUT EXPERIENCE</p>
+        </div>
+    </footer>
+
+
+    <script src="checkout.js"></script>
+
+</body>
+</html>

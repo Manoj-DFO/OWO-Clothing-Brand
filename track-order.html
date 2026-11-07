@@ -1,0 +1,134 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Track Your Order | OWO</title>
+
+    <link rel="stylesheet" href="./track-order.css?v=3">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+
+<body>
+
+    <!-- HEADER -->
+    <header class="tracking-header">
+        <a href="index.html" class="logo">OWO<span>.</span></a>
+
+        <a href="shop.html" class="back-link">
+            Continue Shopping
+            <span>→</span>
+        </a>
+    </header>
+
+
+    <!-- MAIN -->
+    <main class="tracking-container">
+
+        <!-- INTRODUCTION -->
+        <section class="tracking-intro">
+            <span class="eyebrow">ORDER TRACKING</span>
+
+            <h1>
+                Where is your <span>order?</span>
+            </h1>
+
+            <p>
+                Your OWO order journey, all in one place.
+                Enter your details to see the latest delivery updates.
+            </p>
+        </section>
+
+
+        <!-- TRACKING FORM -->
+        <section class="tracking-search">
+
+            <div class="form-heading">
+                <h2>Track your package</h2>
+                <p>Please enter the details used when placing your order.</p>
+            </div>
+
+            <form id="tracking-form" autocomplete="on">
+
+                <div class="form-group">
+                    <label for="order-number">Order Number</label>
+
+                    <input
+                        type="text"
+                        id="order-number"
+                        name="order_number"
+                        placeholder="Example: OWO-123456"
+                        autocomplete="off"
+                        spellcheck="false"
+                        required
+                    >
+                </div>
+
+                <div class="form-group">
+                    <label for="customer-contact">
+                        Registered Email or Phone
+                    </label>
+
+                    <input
+                        type="text"
+                        id="customer-contact"
+                        name="customer_contact"
+                        placeholder="Enter your email or phone number"
+                        autocomplete="email"
+                        required
+                    >
+                </div>
+
+                <button type="submit" id="track-button">
+                    <span id="track-button-text">Track Order</span>
+                    <span class="button-arrow">→</span>
+                </button>
+
+                <p id="tracking-message" class="tracking-message" role="status" aria-live="polite"></p>
+
+            </form>
+
+            <div class="privacy-note">
+                <span>🔒</span>
+                Your order details are protected.
+            </div>
+
+        </section>
+
+
+        <!-- TRACKING RESULTS -->
+        <section id="tracking-result" class="tracking-result" hidden>
+
+            <div id="order-summary"></div>
+
+            <div id="order-progress"></div>
+
+            <div id="order-items"></div>
+
+            <div id="delivery-information"></div>
+
+            <div id="tracking-history"></div>
+
+        </section>
+
+    </main>
+
+
+    <!-- FOOTER -->
+    <footer class="tracking-footer">
+        <p>© 2026 OWO. All rights reserved.</p>
+        <a href="index.html">Back to Home</a>
+    </footer>
+
+
+    <!-- JAVASCRIPT -->
+    <script src="./track-order.js" defer></script>
+
+</body>
+</html>

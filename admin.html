@@ -1,0 +1,681 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="OWO Store Administration Dashboard">
+    <title>OWO | Admin Dashboard</title>
+    <link rel="stylesheet" href="admin.css">
+</head>
+<body>
+
+<div class="admin-layout">
+
+    <!-- SIDEBAR -->
+    <aside class="sidebar" id="sidebar">
+
+        <div class="sidebar-brand">
+            <h2>OWO<span>.</span></h2>
+            <p>ADMIN PANEL</p>
+        </div>
+
+        <nav class="sidebar-nav">
+            <p class="nav-heading">MAIN MENU</p>
+
+            <a href="#dashboard" class="nav-link active" data-section="dashboard">
+                <span>▦</span> Dashboard
+            </a>
+
+            <a href="#orders-section" class="nav-link" data-section="orders-section">
+                <span>▤</span> Orders
+            </a>
+
+            <a href="#products-section" class="nav-link" data-section="products-section">
+                <span>◈</span> Products
+            </a>
+
+            <a href="#add-product-section" class="nav-link" data-section="add-product-section">
+                <span>＋</span> Add Product
+            </a>
+
+            <a href="#inventory-section" class="nav-link" data-section="inventory-section">
+                <span>▥</span> Inventory
+            </a>
+        </nav>
+
+        <div class="sidebar-bottom">
+            <a href="index.html" class="nav-link">
+                <span>↗</span> View Store
+            </a>
+
+            <button type="button" class="nav-link logout-link" id="sidebar-logout">
+                <span>⇥</span> Logout
+            </button>
+        </div>
+
+    </aside>
+
+
+    <!-- MAIN CONTENT -->
+    <main class="main-content">
+
+        <!-- TOPBAR -->
+        <header class="topbar">
+
+            <div class="topbar-left">
+                <button type="button" id="mobile-menu" class="mobile-menu">
+                    ☰
+                </button>
+
+                <div>
+                    <p class="topbar-label">OWO MANAGEMENT</p>
+                    <h2>Admin Dashboard</h2>
+                </div>
+            </div>
+
+            <div class="topbar-right">
+
+                <div class="admin-account" id="admin-account">
+
+                    <button type="button" id="admin-profile-button" class="profile-button">
+                        <span class="profile-avatar">A</span>
+
+                        <span class="profile-info">
+                            <strong id="profile-username">Administrator</strong>
+                            <small id="account-role">Administrator</small>
+                        </span>
+
+                        <span class="profile-arrow">⌄</span>
+                    </button>
+
+                    <div class="profile-menu" id="admin-profile-menu">
+
+                        <div class="profile-menu-info">
+                            <strong id="dropdown-username">Administrator</strong>
+                            <small id="dropdown-role">Administrator</small>
+                        </div>
+
+                        <button type="button" id="logout-button">
+                            ⇥ Logout
+                        </button>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </header>
+
+
+        <!-- PAGE SECTIONS -->
+        <div class="content-area">
+
+
+            <!-- DASHBOARD -->
+            <section id="dashboard" class="page-section active">
+
+                <div class="page-heading">
+                    <div>
+                        <p class="section-label">OVERVIEW</p>
+                        <h1 id="welcome-heading">Welcome back, Administrator</h1>
+                        <p>Here's what's happening with your store.</p>
+                    </div>
+
+                    <button type="button" class="primary-button" id="refresh-dashboard-button">
+                        ↻ Refresh
+                    </button>
+                </div>
+
+                <div class="stats-grid">
+
+                    <div class="stat-card">
+                        <div class="stat-icon">▤</div>
+                        <p>Total Orders</p>
+                        <h2 id="total-orders">0</h2>
+                    </div>
+
+                    <div class="stat-card">
+                        <div class="stat-icon">₹</div>
+                        <p>Total Revenue</p>
+                        <h2 id="total-revenue">₹0</h2>
+                    </div>
+
+                    <div class="stat-card">
+                        <div class="stat-icon">◷</div>
+                        <p>Pending Orders</p>
+                        <h2 id="pending-orders">0</h2>
+                    </div>
+
+                    <div class="stat-card">
+                        <div class="stat-icon">✓</div>
+                        <p>Delivered Orders</p>
+                        <h2 id="delivered-orders">0</h2>
+                    </div>
+
+                </div>
+
+
+                <div class="panel">
+
+                    <div class="panel-header">
+                        <div>
+                            <h3>Recent Orders</h3>
+                            <p>Latest customer orders</p>
+                        </div>
+
+                        <button type="button" class="text-button" data-go="orders-section">
+                            View All →
+                        </button>
+                    </div>
+
+                    <div class="table-wrapper">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Order ID</th>
+                                    <th>Customer</th>
+                                    <th>Date</th>
+                                    <th>Amount</th>
+                                    <th>Status</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+
+                            <tbody id="recent-orders-table">
+                                <tr>
+                                    <td colspan="6">Loading orders...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                </div>
+
+            </section>
+
+
+
+            <!-- ORDERS -->
+            <section id="orders-section" class="page-section">
+
+                <div class="page-heading">
+                    <div>
+                        <p class="section-label">CUSTOMER MANAGEMENT</p>
+                        <h1>Orders</h1>
+                        <p>View and manage all customer orders and deliveries.</p>
+                    </div>
+
+                    <div class="page-heading-actions">
+                        <button type="button" class="secondary-button" id="export-orders-button">
+                            ↓ Export CSV
+                        </button>
+
+                        <button type="button" class="primary-button" id="refresh-orders-button">
+                            ↻ Refresh
+                        </button>
+                    </div>
+                </div>
+
+                <div id="orders-message" class="message"></div>
+
+                <div class="panel">
+
+                    <div class="panel-header">
+                        <div>
+                            <h3>All Orders</h3>
+                            <p>Manage customer orders and delivery status.</p>
+                        </div>
+                    </div>
+
+                    <div class="filter-bar">
+
+                        <input
+                            type="search"
+                            id="order-search"
+                            placeholder="Search order, customer, email or phone..."
+                        >
+
+                        <select id="order-status-filter">
+                            <option value="all">All Statuses</option>
+                            <option value="Payment Pending">Payment Pending</option>
+                            <option value="Pending">Pending</option>
+                            <option value="Processing">Processing</option>
+                            <option value="Packed">Packed</option>
+                            <option value="Shipped">Shipped</option>
+                            <option value="In Transit">In Transit</option>
+                            <option value="Out for Delivery">Out for Delivery</option>
+                            <option value="Delivered">Delivered</option>
+                            <option value="Cancelled">Cancelled</option>
+                            <option value="Delivery Failed">Delivery Failed</option>
+                        </select>
+
+                    </div>
+
+                    <div class="table-wrapper">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Order ID</th>
+                                    <th>Customer</th>
+                                    <th>Date</th>
+                                    <th>Amount</th>
+                                    <th>Payment</th>
+                                    <th>Status</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+
+                            <tbody id="orders-table">
+                                <tr>
+                                    <td colspan="7">Loading orders...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                </div>
+
+            </section>
+
+
+
+            <!-- PRODUCTS -->
+            <section id="products-section" class="page-section">
+
+                <div class="page-heading">
+                    <div>
+                        <p class="section-label">STORE MANAGEMENT</p>
+                        <h1>Products</h1>
+                        <p>Manage all active products in your store.</p>
+                    </div>
+
+                    <div class="page-heading-actions">
+                        <button type="button" class="secondary-button" id="export-products-button">
+                            ↓ Export CSV
+                        </button>
+
+                        <button type="button" class="primary-button" data-go="add-product-section">
+                            + Add Product
+                        </button>
+                    </div>
+                </div>
+
+                <div id="products-message" class="message"></div>
+
+                <div class="panel">
+
+                    <div class="panel-header">
+                        <div>
+                            <h3>Product Catalogue</h3>
+                            <p id="product-result-count">0 products</p>
+                        </div>
+
+                        <button type="button" class="secondary-button" id="refresh-products-button">
+                            ↻ Refresh
+                        </button>
+                    </div>
+
+                    <div class="filter-bar">
+
+                        <input
+                            type="search"
+                            id="product-search"
+                            placeholder="Search products..."
+                        >
+
+                        <select id="product-category-filter">
+                            <option value="all">All Categories</option>
+                            <option value="Men">Men</option>
+                            <option value="Women">Women</option>
+                            <option value="Streetwear">Streetwear</option>
+                            <option value="Custom Clothing">Custom Clothing</option>
+                            <option value="Watches">Watches</option>
+                            <option value="Fragrance">Fragrance</option>
+                            <option value="Jewellery">Jewellery</option>
+                            <option value="Accessories">Accessories</option>
+                        </select>
+
+                        <select id="product-stock-filter">
+                            <option value="all">All Stock</option>
+                            <option value="in-stock">In Stock</option>
+                            <option value="low-stock">Low Stock</option>
+                            <option value="out-of-stock">Out of Stock</option>
+                        </select>
+
+                    </div>
+
+                    <div class="table-wrapper">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Product</th>
+                                    <th>Category</th>
+                                    <th>Price</th>
+                                    <th>Stock</th>
+                                    <th>Sizes</th>
+                                    <th>Stock Status</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+
+                            <tbody id="products-table">
+                                <tr>
+                                    <td colspan="7">Loading products...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                </div>
+
+            </section>
+
+
+
+            <!-- ADD / EDIT PRODUCT -->
+            <section id="add-product-section" class="page-section">
+
+                <div class="page-heading">
+                    <div>
+                        <p class="section-label">STORE MANAGEMENT</p>
+                        <h1 id="product-form-heading">Add New Product</h1>
+                        <p id="product-form-description">
+                            Add a new product to your OWO store.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="panel form-panel">
+
+                    <div id="add-product-message" class="message"></div>
+
+                    <form id="product-form">
+
+                        <div class="form-grid">
+
+                            <div class="form-group">
+                                <label for="product-name">Product Name *</label>
+                                <input
+                                    type="text"
+                                    id="product-name"
+                                    maxlength="150"
+                                    placeholder="Enter product name"
+                                    required
+                                >
+                            </div>
+
+                            <div class="form-group">
+                                <label for="product-price">Price (₹) *</label>
+                                <input
+                                    type="number"
+                                    id="product-price"
+                                    min="0.01"
+                                    step="0.01"
+                                    placeholder="Enter price"
+                                    required
+                                >
+                            </div>
+
+                            <div class="form-group">
+                                <label for="product-category">Category *</label>
+                                <select id="product-category" required>
+                                    <option value="">Select category</option>
+                                    <option value="Men">Men</option>
+                                    <option value="Women">Women</option>
+                                    <option value="Streetwear">Streetwear</option>
+                                    <option value="Custom Clothing">Custom Clothing</option>
+                                    <option value="Watches">Watches</option>
+                                    <option value="Fragrance">Fragrance</option>
+                                    <option value="Jewellery">Jewellery</option>
+                                    <option value="Accessories">Accessories</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="product-stock">Stock Quantity *</label>
+                                <input
+                                    type="number"
+                                    id="product-stock"
+                                    min="0"
+                                    step="1"
+                                    placeholder="Enter stock quantity"
+                                    required
+                                >
+                            </div>
+
+                            <div class="form-group full-width">
+                                <label for="product-image">Product Image URL</label>
+                                <input
+                                    type="url"
+                                    id="product-image"
+                                    placeholder="https://example.com/image.jpg"
+                                >
+
+                                <small>Enter a direct image URL.</small>
+
+                                <div
+                                    id="product-image-preview"
+                                    class="product-image-preview"
+                                    hidden
+                                ></div>
+                            </div>
+
+                            <div class="form-group full-width">
+                                <label for="product-description">Description</label>
+                                <textarea
+                                    id="product-description"
+                                    rows="5"
+                                    placeholder="Describe your product..."
+                                ></textarea>
+                            </div>
+
+                            <div class="form-group full-width" id="product-sizes-group">
+
+                                <label>Available Sizes</label>
+
+                                <div class="size-options">
+                                    <label><input type="checkbox" name="product-size" value="S"> S</label>
+                                    <label><input type="checkbox" name="product-size" value="M"> M</label>
+                                    <label><input type="checkbox" name="product-size" value="L"> L</label>
+                                    <label><input type="checkbox" name="product-size" value="XL"> XL</label>
+                                    <label><input type="checkbox" name="product-size" value="XXL"> XXL</label>
+                                </div>
+
+                                <small>Sizes are required for clothing categories.</small>
+
+                            </div>
+
+                        </div>
+
+                        <div class="form-actions">
+
+                            <button type="submit" class="primary-button" id="add-product-button">
+                                Save Product
+                            </button>
+
+                            <button
+                                type="button"
+                                class="secondary-button"
+                                id="cancel-edit-button"
+                                hidden
+                            >
+                                Cancel
+                            </button>
+
+                        </div>
+
+                    </form>
+
+                </div>
+
+            </section>
+
+
+
+            <!-- INVENTORY -->
+            <section id="inventory-section" class="page-section">
+
+                <div class="page-heading">
+                    <div>
+                        <p class="section-label">STORE MANAGEMENT</p>
+                        <h1>Inventory Management</h1>
+                        <p>Monitor stock levels and update product quantities.</p>
+                    </div>
+
+                    <button type="button" class="primary-button" id="refresh-inventory-button">
+                        ↻ Refresh
+                    </button>
+                </div>
+
+                <div id="inventory-message" class="message"></div>
+
+                <!-- INVENTORY SUMMARY -->
+                <div class="stats-grid inventory-summary-grid">
+
+                    <div class="stat-card">
+                        <div class="stat-icon">◈</div>
+                        <p>Total Products</p>
+                        <h2 id="inventory-total-products">0</h2>
+                    </div>
+
+                    <div class="stat-card">
+                        <div class="stat-icon">✓</div>
+                        <p>In Stock</p>
+                        <h2 id="inventory-in-stock-count">0</h2>
+                    </div>
+
+                    <div class="stat-card">
+                        <div class="stat-icon">!</div>
+                        <p>Low Stock</p>
+                        <h2 id="inventory-low-stock-count">0</h2>
+                    </div>
+
+                    <div class="stat-card">
+                        <div class="stat-icon">×</div>
+                        <p>Out of Stock</p>
+                        <h2 id="inventory-out-stock-count">0</h2>
+                    </div>
+
+                </div>
+
+                <!-- FULL INVENTORY -->
+                <div class="panel">
+
+                    <div class="panel-header">
+                        <div>
+                            <h3>All Product Inventory</h3>
+                            <p>Update stock quantities directly from this table.</p>
+                        </div>
+                    </div>
+
+                    <div class="filter-bar">
+
+                        <input
+                            type="search"
+                            id="inventory-search"
+                            placeholder="Search product name or category..."
+                        >
+
+                        <select id="inventory-stock-filter">
+                            <option value="all">All Stock Levels</option>
+                            <option value="in-stock">In Stock</option>
+                            <option value="low-stock">Low Stock</option>
+                            <option value="out-of-stock">Out of Stock</option>
+                        </select>
+
+                    </div>
+
+                    <div class="table-wrapper">
+                        <table class="inventory-table">
+                            <thead>
+                                <tr>
+                                    <th>Product</th>
+                                    <th>Category</th>
+                                    <th>Current Stock</th>
+                                    <th>Stock Status</th>
+                                    <th>Update Quantity</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+
+                            <tbody id="inventory-table">
+                                <tr>
+                                    <td colspan="6">Loading inventory...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                </div>
+
+
+                <!-- LOW STOCK ALERTS -->
+                <div class="panel">
+
+                    <div class="panel-header">
+                        <div>
+                            <h3>Low Stock Alerts</h3>
+                            <p>Products with 5 or fewer units remaining.</p>
+                        </div>
+
+                        <span class="stock-badge low-stock">
+                            <span id="stock-alert-count">0</span> Alerts
+                        </span>
+                    </div>
+
+                    <div id="low-stock-list" class="low-stock-list">
+                        <p>Loading inventory...</p>
+                    </div>
+
+                </div>
+
+            </section>
+
+
+        </div>
+
+    </main>
+
+</div>
+
+
+
+<!-- ORDER DETAILS MODAL -->
+<div
+    class="modal"
+    id="order-modal"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="order-modal-title"
+>
+
+    <div class="modal-content">
+
+        <div class="modal-header">
+            <h2 id="order-modal-title">Order Details</h2>
+
+            <button
+                type="button"
+                id="close-order-modal"
+                class="modal-close"
+                aria-label="Close order details"
+            >
+                ×
+            </button>
+        </div>
+
+        <div id="order-details-content">
+            Loading order details...
+        </div>
+
+    </div>
+
+</div>
+
+
+<script src="admin.js"></script>
+
+</body>
+</html>

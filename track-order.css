@@ -1,0 +1,676 @@
+
+/* ============================================
+   OWO ORDER TRACKING
+============================================ */
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+:root {
+    --black: #111111;
+    --dark: #222222;
+    --grey: #777777;
+    --light-grey: #eeeeee;
+    --background: #f8f8f6;
+    --white: #ffffff;
+    --accent: #c7a879;
+    --green: #26845b;
+    --red: #c94b4b;
+}
+
+body {
+    font-family: "DM Sans", sans-serif;
+    background: var(--background);
+    color: var(--black);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+h1,
+h2,
+h3,
+.logo {
+    font-family: "Outfit", sans-serif;
+}
+
+
+/* ============================================
+   HEADER
+============================================ */
+
+.tracking-header {
+    height: 82px;
+    padding: 0 8%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--white);
+    border-bottom: 1px solid #eeeeee;
+}
+
+.logo {
+    font-size: 29px;
+    font-weight: 700;
+    letter-spacing: -1.5px;
+    text-decoration: none;
+    color: var(--black);
+}
+
+.logo span {
+    color: var(--accent);
+}
+
+.back-link {
+    font-size: 12px;
+    font-weight: 600;
+    text-decoration: none;
+    color: var(--black);
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    transition: color 0.2s;
+}
+
+.back-link:hover {
+    color: var(--accent);
+}
+
+.back-link span {
+    font-size: 17px;
+}
+
+
+/* ============================================
+   MAIN CONTAINER
+============================================ */
+
+.tracking-container {
+    width: 100%;
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 65px 25px 90px;
+    flex: 1;
+}
+
+
+/* ============================================
+   INTRODUCTION
+============================================ */
+
+.tracking-intro {
+    text-align: center;
+    max-width: 600px;
+    margin: 0 auto 42px;
+}
+
+.eyebrow {
+    display: inline-block;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 3px;
+    color: var(--accent);
+    margin-bottom: 17px;
+}
+
+.tracking-intro h1 {
+    font-size: clamp(34px, 5vw, 49px);
+    line-height: 1.15;
+    font-weight: 600;
+    letter-spacing: -1.8px;
+    margin-bottom: 15px;
+}
+
+.tracking-intro h1 span {
+    color: var(--accent);
+}
+
+.tracking-intro p {
+    color: var(--grey);
+    font-size: 13px;
+    line-height: 1.8;
+}
+
+
+/* ============================================
+   SEARCH FORM
+============================================ */
+
+.tracking-search {
+    max-width: 570px;
+    margin: 0 auto;
+    padding: 34px;
+    background: var(--white);
+    border: 1px solid #eeeeee;
+    border-radius: 8px;
+    box-shadow: 0 12px 35px rgba(0, 0, 0, 0.035);
+}
+
+.form-heading {
+    margin-bottom: 27px;
+}
+
+.form-heading h2 {
+    font-size: 21px;
+    font-weight: 600;
+    margin-bottom: 7px;
+}
+
+.form-heading p {
+    font-size: 12px;
+    color: var(--grey);
+    line-height: 1.6;
+}
+
+.form-group {
+    margin-bottom: 20px;
+}
+
+.form-group label {
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+    margin-bottom: 9px;
+}
+
+.form-group input {
+    display: block;
+    width: 100%;
+    height: 49px;
+    padding: 0 14px;
+    border: 1px solid #dedede;
+    border-radius: 5px;
+    outline: none;
+    background: #ffffff;
+    color: var(--black);
+    font-family: "DM Sans", sans-serif;
+    font-size: 13px;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.form-group input::placeholder {
+    color: #aaaaaa;
+}
+
+.form-group input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(199, 168, 121, 0.12);
+}
+
+
+/* ============================================
+   BUTTON
+============================================ */
+
+#track-button {
+    width: 100%;
+    height: 49px;
+    border: none;
+    border-radius: 5px;
+    background: var(--black);
+    color: var(--white);
+    font-family: "DM Sans", sans-serif;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    transition: background 0.25s, transform 0.2s;
+}
+
+#track-button:hover:not(:disabled) {
+    background: var(--accent);
+    transform: translateY(-1px);
+}
+
+#track-button:disabled {
+    opacity: 0.65;
+    cursor: not-allowed;
+}
+
+.button-arrow {
+    font-size: 18px;
+}
+
+.privacy-note {
+    margin-top: 19px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 7px;
+    color: var(--grey);
+    font-size: 10px;
+}
+
+
+/* ============================================
+   MESSAGE
+============================================ */
+
+.tracking-message {
+    display: none;
+    margin-top: 15px;
+    padding: 11px 13px;
+    border-radius: 5px;
+    font-size: 12px;
+    line-height: 1.6;
+    text-align: center;
+}
+
+.tracking-message.error {
+    display: block;
+    color: var(--red);
+    background: #fff1f1;
+}
+
+.tracking-message.success {
+    display: block;
+    color: var(--green);
+    background: #effaf4;
+}
+
+.tracking-message.loading {
+    display: block;
+    color: #8a6b3d;
+    background: #fbf6ed;
+}
+
+
+/* ============================================
+   TRACKING RESULTS
+============================================ */
+
+.tracking-result {
+    max-width: 800px;
+    margin: 40px auto 0;
+}
+
+.tracking-result[hidden] {
+    display: none;
+}
+
+.tracking-card {
+    background: var(--white);
+    border: 1px solid #eeeeee;
+    border-radius: 7px;
+    padding: 27px;
+    margin-bottom: 19px;
+}
+
+.tracking-card h2 {
+    font-size: 19px;
+    font-weight: 600;
+    margin-bottom: 21px;
+}
+
+
+/* ============================================
+   ORDER SUMMARY
+============================================ */
+
+.order-summary-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 15px;
+    margin-bottom: 25px;
+}
+
+.order-summary-top h2 {
+    margin-bottom: 7px;
+}
+
+.order-number {
+    font-size: 12px;
+    color: var(--grey);
+    overflow-wrap: anywhere;
+}
+
+.status-badge {
+    padding: 7px 12px;
+    border-radius: 30px;
+    font-size: 10px;
+    font-weight: 700;
+    background: #f0f0f0;
+    color: var(--dark);
+    white-space: nowrap;
+}
+
+.status-badge.delivered {
+    background: #eaf7ef;
+    color: var(--green);
+}
+
+.status-badge.cancelled,
+.status-badge.delivery-failed {
+    background: #fff0f0;
+    color: var(--red);
+}
+
+.status-badge.shipped,
+.status-badge.in-transit,
+.status-badge.out-for-delivery {
+    background: #f5f0e7;
+    color: #947344;
+}
+
+.summary-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 22px;
+    padding-top: 22px;
+    border-top: 1px solid #eeeeee;
+}
+
+.summary-item {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    min-width: 0;
+}
+
+.summary-item small,
+.delivery-field small {
+    font-size: 10px;
+    color: var(--grey);
+}
+
+.summary-item strong,
+.delivery-field strong {
+    font-size: 12px;
+    font-weight: 600;
+    overflow-wrap: anywhere;
+}
+
+
+/* ============================================
+   PROGRESS TIMELINE
+============================================ */
+
+.progress-track {
+    position: relative;
+    display: flex;
+    justify-content: space-between;
+    margin: 35px 5px 25px;
+}
+
+.progress-track::before {
+    content: "";
+    position: absolute;
+    top: 6px;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: #e8e8e8;
+}
+
+.progress-line {
+    position: absolute;
+    top: 6px;
+    left: 0;
+    height: 2px;
+    background: var(--accent);
+    z-index: 1;
+    transition: width 0.4s ease;
+}
+
+.progress-step {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 11px;
+    width: 20%;
+    text-align: center;
+}
+
+.progress-dot {
+    width: 14px;
+    height: 14px;
+    border: 2px solid #d8d8d8;
+    border-radius: 50%;
+    background: var(--white);
+}
+
+.progress-step.completed .progress-dot {
+    background: var(--accent);
+    border-color: var(--accent);
+}
+
+.progress-step span {
+    font-size: 10px;
+    color: var(--grey);
+}
+
+.progress-step.completed span {
+    color: var(--black);
+    font-weight: 600;
+}
+
+.progress-note {
+    margin-top: 20px;
+    font-size: 12px;
+    color: var(--grey);
+    line-height: 1.7;
+}
+
+
+/* ============================================
+   ORDER ITEMS
+============================================ */
+
+.item-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 20px;
+    padding: 17px 0;
+    border-top: 1px solid #eeeeee;
+}
+
+.item-row:first-of-type {
+    border-top: none;
+}
+
+.item-name {
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 7px;
+}
+
+.item-details {
+    font-size: 11px;
+    color: var(--grey);
+}
+
+.item-price {
+    font-size: 12px;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+
+/* ============================================
+   DELIVERY INFORMATION
+============================================ */
+
+.delivery-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 24px 20px;
+}
+
+.delivery-field {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    min-width: 0;
+}
+
+.empty-history {
+    font-size: 12px;
+    color: var(--grey);
+}
+
+
+/* ============================================
+   TRACKING HISTORY
+============================================ */
+
+.tracking-event {
+    position: relative;
+    padding: 0 0 24px 21px;
+    margin-left: 5px;
+    border-left: 1px solid #e3e3e3;
+}
+
+.tracking-event:last-child {
+    padding-bottom: 0;
+    border-left-color: transparent;
+}
+
+.tracking-event::before {
+    content: "";
+    position: absolute;
+    top: 3px;
+    left: -5px;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: var(--accent);
+}
+
+.tracking-event h3 {
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 6px;
+}
+
+.tracking-event p {
+    font-size: 11px;
+    color: var(--grey);
+    line-height: 1.7;
+    margin-bottom: 4px;
+}
+
+.tracking-event time {
+    display: block;
+    font-size: 10px;
+    color: #999999;
+    margin-top: 7px;
+}
+
+
+/* ============================================
+   FOOTER
+============================================ */
+
+.tracking-footer {
+    min-height: 70px;
+    padding: 20px 8%;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 15px;
+    background: var(--white);
+    border-top: 1px solid #eeeeee;
+}
+
+.tracking-footer p,
+.tracking-footer a {
+    font-size: 10px;
+    color: var(--grey);
+}
+
+.tracking-footer a {
+    text-decoration: none;
+}
+
+.tracking-footer a:hover {
+    color: var(--accent);
+}
+
+
+/* ============================================
+   RESPONSIVE DESIGN
+============================================ */
+
+@media (max-width: 600px) {
+
+    .tracking-header {
+        height: 68px;
+        padding: 0 20px;
+    }
+
+    .logo {
+        font-size: 25px;
+    }
+
+    .tracking-container {
+        padding: 48px 16px 65px;
+    }
+
+    .tracking-intro {
+        margin-bottom: 30px;
+    }
+
+    .tracking-intro h1 {
+        font-size: 35px;
+    }
+
+    .tracking-search {
+        padding: 23px 19px;
+    }
+
+    .tracking-card {
+        padding: 21px 17px;
+    }
+
+    .summary-grid {
+        gap: 19px 12px;
+    }
+
+    .delivery-grid {
+        gap: 20px 12px;
+    }
+
+    .progress-step span {
+        font-size: 9px;
+    }
+
+    .progress-track {
+        margin-left: 0;
+        margin-right: 0;
+    }
+
+    .tracking-footer {
+        padding: 18px 20px;
+    }
+}
+
+@media (max-width: 380px) {
+
+    .back-link {
+        font-size: 10px;
+    }
+
+    .tracking-intro h1 {
+        font-size: 31px;
+    }
+
+    .progress-step span {
+        font-size: 8px;
+    }
+
+    .summary-grid,
+    .delivery-grid {
+        grid-template-columns: 1fr;
+    }
+}

@@ -1,0 +1,367 @@
+
+/* =================================
+   OWO - PREMIUM SHOPPING CART
+================================= */
+
+.cart-page {
+    width: 88%;
+    max-width: 1400px;
+    margin: 85px auto 110px;
+}
+
+/* PAGE HEADING */
+
+.cart-heading {
+    margin-bottom: 60px;
+}
+
+.cart-heading h1 {
+    font-family: "Playfair Display", serif;
+    font-size: clamp(42px, 6vw, 72px);
+    font-weight: 500;
+    letter-spacing: -1.5px;
+    margin: 12px 0;
+}
+
+.cart-heading h1 span {
+    color: #b69a76;
+}
+
+.cart-heading > p:last-child {
+    color: #777;
+    font-size: 14px;
+    line-height: 1.7;
+}
+
+/* MAIN LAYOUT */
+
+.cart-layout {
+    display: grid;
+    grid-template-columns: 1.8fr 1fr;
+    gap: 65px;
+    align-items: start;
+}
+
+/* CART SECTION */
+
+.cart-section-heading {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 15px;
+    padding-bottom: 22px;
+    border-bottom: 1px solid #e8e5e0;
+}
+
+.cart-section-heading h2,
+.cart-summary h2 {
+    font-family: "Playfair Display", serif;
+    font-size: 26px;
+    font-weight: 500;
+}
+
+.cart-section-heading a {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    color: #777;
+    text-decoration: none;
+    transition: color 0.3s;
+}
+
+.cart-section-heading a:hover {
+    color: #b69a76;
+}
+
+/* PRODUCT ITEM */
+
+.cart-item {
+    display: grid;
+    grid-template-columns: 125px 1fr auto;
+    gap: 25px;
+    align-items: center;
+    padding: 28px 0;
+    border-bottom: 1px solid #e8e5e0;
+}
+
+.cart-item-image {
+    width: 125px;
+    height: 145px;
+    object-fit: cover;
+    background: #f3f1ed;
+}
+
+.cart-item-info h3 {
+    font-size: 16px;
+    font-weight: 600;
+    margin-bottom: 8px;
+}
+
+.cart-item-info p {
+    font-size: 12px;
+    color: #888;
+    margin-bottom: 12px;
+    letter-spacing: 0.5px;
+}
+
+/* PRODUCT SIZE */
+
+.cart-item-info .cart-item-size {
+    color: #555;
+    font-size: 13px;
+    margin-bottom: 15px;
+    letter-spacing: 0;
+}
+
+.cart-item-size strong {
+    color: #111;
+    margin-left: 5px;
+}
+
+/* QUANTITY */
+
+.quantity-controls {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    width: fit-content;
+    border: 1px solid #dedbd5;
+    padding: 8px 12px;
+}
+
+.quantity-controls button {
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    font-size: 17px;
+    width: 20px;
+    color: #111;
+    transition: color 0.2s;
+}
+
+.quantity-controls button:hover {
+    color: #b69a76;
+}
+
+.quantity-controls span {
+    font-size: 13px;
+    min-width: 15px;
+    text-align: center;
+}
+
+/* PRICE AND REMOVE */
+
+.cart-item-actions {
+    text-align: right;
+    align-self: stretch;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    align-items: flex-end;
+}
+
+.cart-item-price {
+    font-size: 15px;
+    font-weight: 700;
+}
+
+.remove-item {
+    border: none;
+    background: none;
+    color: #888;
+    text-decoration: underline;
+    font-size: 12px;
+    cursor: pointer;
+    transition: color 0.2s;
+}
+
+.remove-item:hover {
+    color: #c0392b;
+}
+
+/* ORDER SUMMARY */
+
+.cart-summary {
+    background: #f7f6f3;
+    padding: 35px;
+    position: sticky;
+    top: 110px;
+}
+
+.cart-summary h2 {
+    margin-bottom: 30px;
+}
+
+.summary-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 15px;
+    margin-bottom: 22px;
+    font-size: 14px;
+}
+
+.summary-row span {
+    color: #666;
+}
+
+.summary-row strong {
+    font-weight: 600;
+    color: #111;
+}
+
+.summary-divider {
+    height: 1px;
+    background: #dedbd5;
+    margin: 28px 0;
+}
+
+.total-row {
+    font-size: 17px;
+}
+
+.total-row span {
+    color: #111;
+    font-weight: 700;
+}
+
+.total-row strong {
+    font-size: 21px;
+}
+
+.cart-note {
+    color: #888;
+    font-size: 11px;
+    line-height: 1.8;
+    margin: 22px 0;
+}
+
+/* CHECKOUT BUTTON */
+
+.checkout-button,
+.cart-shop-button {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    padding: 18px;
+    background: #111;
+    color: white;
+    border: none;
+    text-decoration: none;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1.2px;
+    cursor: pointer;
+    transition: background 0.3s ease;
+}
+
+.checkout-button:hover,
+.cart-shop-button:hover {
+    background: #b69a76;
+}
+
+.checkout-button:disabled {
+    background: #aaa;
+    cursor: not-allowed;
+}
+
+.secure-payment {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    color: #777;
+    font-size: 12px;
+    margin-top: 22px;
+}
+
+/* EMPTY CART */
+
+.empty-cart {
+    text-align: center;
+    padding: 75px 20px;
+}
+
+.empty-cart > i {
+    font-size: 45px;
+    color: #b69a76;
+    margin-bottom: 22px;
+}
+
+.empty-cart h2 {
+    font-family: "Playfair Display", serif;
+    font-size: 29px;
+    margin-bottom: 12px;
+}
+
+.empty-cart p {
+    color: #777;
+    font-size: 14px;
+    margin-bottom: 28px;
+}
+
+.cart-shop-button {
+    width: fit-content;
+    margin: auto;
+}
+
+/* TABLET */
+
+@media (max-width: 850px) {
+    .cart-layout {
+        grid-template-columns: 1fr;
+        gap: 40px;
+    }
+
+    .cart-summary {
+        position: static;
+    }
+}
+
+/* MOBILE */
+
+@media (max-width: 550px) {
+    .cart-page {
+        width: 90%;
+        margin-top: 45px;
+        margin-bottom: 65px;
+    }
+
+    .cart-heading {
+        margin-bottom: 38px;
+    }
+
+    .cart-item {
+        grid-template-columns: 90px 1fr;
+        gap: 15px;
+        padding: 22px 0;
+    }
+
+    .cart-item-image {
+        width: 90px;
+        height: 115px;
+    }
+
+    .cart-item-info h3 {
+        font-size: 14px;
+    }
+
+    .cart-item-actions {
+        grid-column: 2;
+        flex-direction: row;
+        align-items: center;
+    }
+
+    .cart-section-heading {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .cart-summary {
+        padding: 25px;
+    }
+
+    .empty-cart {
+        padding: 50px 15px;
+    }
+}

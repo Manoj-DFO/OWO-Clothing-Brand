@@ -1,0 +1,73 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OWO Admin Login</title>
+    <link rel="stylesheet" href="admin-login.css">
+</head>
+<body>
+
+    <main class="login-container">
+
+        <div class="login-card">
+
+            <a href="index.html" class="logo">OWO<span>.</span></a>
+
+            <p class="eyebrow">ADMINISTRATION</p>
+
+            <h1>Welcome back.</h1>
+
+            <p class="subtitle">
+                Sign in to manage your OWO store.
+            </p>
+
+            <form id="login-form">
+
+                <div class="form-group">
+                    <label for="username">Username</label>
+                    <input
+                        type="text"
+                        id="username"
+                        placeholder="Enter admin username"
+                        autocomplete="username"
+                        required
+                    >
+                </div>
+
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <input
+                        type="password"
+                        id="password"
+                        placeholder="Enter your password"
+                        autocomplete="current-password"
+                        required
+                    >
+                </div>
+
+                <button type="submit" id="login-button">
+                    Sign In
+                </button>
+
+                <p id="login-message"></p>
+
+            </form>
+
+            <p class="security-note">
+                <span>●</span> Secure administrator access
+            </p>
+
+        </div>
+
+        <footer>
+            © 2026 OWO. All rights reserved.
+        </footer>
+
+    </main>
+
+    <script src="admin-login.js"></script>
+
+</body>
+</html>
