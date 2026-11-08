@@ -25,9 +25,26 @@
 
     <header class="navbar">
         <a href="index.html" class="logo">OWO<span>.</span></a>
-        <a href="index.html" class="confirmation-home-link">BACK TO HOME</a>
-    </header>
 
+        <div style="display: flex; align-items: center; gap: 25px;">
+
+            <a
+                href="login.html"
+                id="accountLink"
+                aria-label="Account"
+                title="Account"
+                style="color: #111; text-decoration: none; font-size: 13px; font-weight: 600;"
+            >
+                <i class="fa-regular fa-user"></i>
+                Account
+            </a>
+
+            <a href="index.html" class="confirmation-home-link">
+                BACK TO HOME
+            </a>
+
+        </div>
+    </header>
 
     <main class="confirmation-page">
 
@@ -53,7 +70,6 @@
 
         </section>
 
-
         <section class="confirmation-details">
 
             <div class="confirmation-products">
@@ -70,7 +86,6 @@
                 </div>
 
             </div>
-
 
             <div class="confirmation-customer">
 
@@ -110,15 +125,21 @@
 
         </section>
 
-
         <div class="confirmation-note">
             <i class="fa-solid fa-circle-info"></i>
             <p>
-                This is a demonstration order. No real payment was collected
-                and the order has not been sent to a store database.
+                This is a demonstration order. No real payment was collected.
+                Your order information is stored in the OWO development database.
             </p>
         </div>
 
+        <!-- TRACK ORDER BUTTON -->
+
+        <a href="track-order.html" class="track-order-button">
+            <i class="fa-solid fa-truck"></i>
+            TRACK YOUR ORDER
+            <i class="fa-solid fa-arrow-right"></i>
+        </a>
 
         <a href="index.html" class="continue-shopping">
             CONTINUE SHOPPING
@@ -127,7 +148,6 @@
 
     </main>
 
-
     <footer class="footer">
         <div class="footer-bottom">
             <p>© 2026 OWO. ALL RIGHTS RESERVED.</p>
@@ -135,6 +155,22 @@
         </div>
     </footer>
 
+    <!-- CUSTOMER ACCOUNT NAVIGATION -->
+
+    <script>
+        const accountLink = document.getElementById("accountLink");
+        const customerToken = localStorage.getItem("owoCustomerToken");
+
+        if (accountLink) {
+            accountLink.href = customerToken
+                ? "account.html"
+                : "login.html";
+
+            accountLink.innerHTML = customerToken
+                ? '<i class="fa-regular fa-user"></i> My Account'
+                : '<i class="fa-regular fa-user"></i> Account';
+        }
+    </script>
 
     <script src="order-success.js"></script>
 

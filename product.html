@@ -21,6 +21,7 @@
     </div>
 
     <header class="product-header">
+
         <a href="index.html" class="product-logo">OWO.</a>
 
         <a href="index.html" class="back-link">
@@ -28,11 +29,22 @@
             Continue Shopping
         </a>
 
+        <a href="track-order.html" class="back-link">
+            <i class="fa-solid fa-truck"></i>
+            Track Order
+        </a>
+
+        <a href="login.html" class="back-link" id="accountLink">
+            <i class="fa-regular fa-user"></i>
+            Account
+        </a>
+
         <a href="cart.html" class="cart-link">
             <i class="fa-solid fa-bag-shopping"></i>
             Cart
             <span id="cart-count">0</span>
         </a>
+
     </header>
 
     <main class="product-details-container">
@@ -46,8 +58,25 @@
     <footer class="product-footer">
         <h2>OWO.</h2>
         <p>Wear Your Identity.</p>
+        <a href="track-order.html">Track Your Order</a>
         <p>© 2026 OWO. All rights reserved.</p>
     </footer>
+
+    <!-- CUSTOMER ACCOUNT NAVIGATION -->
+    <script>
+        const accountLink = document.getElementById("accountLink");
+        const customerToken = localStorage.getItem("owoCustomerToken");
+
+        if (accountLink) {
+            accountLink.href = customerToken
+                ? "account.html"
+                : "login.html";
+
+            accountLink.innerHTML = customerToken
+                ? '<i class="fa-regular fa-user"></i> My Account'
+                : '<i class="fa-regular fa-user"></i> Account';
+        }
+    </script>
 
     <script src="product.js"></script>
 

@@ -7,13 +7,31 @@
 
 const savedOrder = localStorage.getItem("owoLastOrder");
 
-const orderIdElement = document.getElementById("order-id");
+const confirmationPage = document.querySelector(".confirmation-page");
 
-// 2. CHECK WHETHER AN ORDER EXISTS
+
+// 2. HELPER FUNCTIONS
+
+function escapeHTML(value) {
+    return String(value ?? "").replace(/[&<>"']/g, char => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#039;"
+    })[char]);
+}
+
+function formatPrice(price) {
+    return "₹" + Number(price || 0).toLocaleString("en-IN");
+}
+
+
+// 3. CHECK WHETHER AN ORDER EXISTS
 
 if (!savedOrder) {
 
-    document.querySelector(".confirmation-page").innerHTML = `
+    confirmationPage.innerHTML = `
         <div class="confirmation-hero">
             <div class="success-icon">
                 <i class="fa-solid fa-bag-shopping"></i>
@@ -33,93 +51,154 @@ if (!savedOrder) {
 
 } else {
 
-    const order = JSON.parse(savedOrder);
+    try {
 
-    // 3. ORDER ID
+        const order = JSON.parse(savedOrder);
 
-    if (!order.orderId) {
-        order.orderId = "OWO-" + Date.now().toString().slice(-8);
+        // 4. VALIDATE ORDER INFORMATION
 
-        localStorage.setItem("owoLastOrder", JSON.stringify(order));
-    }
+        if (!order.orderId || !order.customer) {
+            throw new Error("Order information is incomplete.");
+        }
 
-    orderIdElement.textContent = order.orderId;
+        // 5. DISPLAY ORDER ID
 
-    // 4. FORMAT PRICE
+        document.getElementById("order-id").textContent =
+            order.orderId;
 
-    function formatPrice(price) {
-        return "₹" + Number(price).toLocaleString("en-IN");
-    }
 
-    // 5. DISPLAY PRODUCTS
+        // 6. DISPLAY PRODUCTS
 
-    const productsContainer =
-        document.getElementById("confirmed-products");
+        const productsContainer =
+            document.getElementById("confirmed-products");
 
-    productsContainer.innerHTML = "";
+        productsContainer.innerHTML = "";
 
-    (order.products || []).forEach(product => {
+        (order.products || []).forEach(product => {
 
-        const image = product.image_url || product.imageUrl || product.image || "";
+            const image =
+                product.image_url ||
+                product.imageUrl ||
+                product.image ||
+                "";
 
-        const item = document.createElement("div");
+            const item = document.createElement("div");
 
-        item.className = "confirmed-product";
+            item.className = "confirmed-product";
 
-        item.innerHTML = `
-            <img
-                src="${image}"
-                alt="${product.name}"
-                onerror="this.style.display='none';"
-            >
+            item.innerHTML = `
+                <img
+                    src="${escapeHTML(image)}"
+                    alt="${escapeHTML(product.name)}"
+                    onerror="this.style.display='none';"
+                >
 
-            <div class="confirmed-product-info">
-                <h3>${product.name}</h3>
-                ${product.size ? `<p>Size: ${product.size}</p>` : ""}
-                <p>Quantity: ${product.quantity}</p>
+                <div class="confirmed-product-info">
+
+                    <h3>${escapeHTML(product.name)}</h3>
+
+                    ${product.size ? `
+                        <p>Size: ${escapeHTML(product.size)}</p>
+                    ` : ""}
+
+                    <p>
+                        Quantity: ${Number(product.quantity || 1)}
+                    </p>
+
+                </div>
+
+                <strong>
+                    ${formatPrice(
+                        Number(product.price || 0) *
+                        Number(product.quantity || 1)
+                    )}
+                </strong>
+            `;
+
+            productsContainer.appendChild(item);
+
+        });
+
+
+        // 7. DISPLAY TOTAL
+
+        document.getElementById("confirmed-total").textContent =
+            formatPrice(order.total);
+
+
+        // 8. CUSTOMER DETAILS
+
+        const customer = order.customer;
+
+        document.getElementById("confirmed-name").textContent =
+            customer.name || "Not available";
+
+        document.getElementById("confirmed-email").textContent =
+            customer.email || "Not available";
+
+        document.getElementById("confirmed-phone").textContent =
+            customer.phone || "Not available";
+
+        document.getElementById("confirmed-address").textContent = [
+            customer.address,
+            customer.city,
+            customer.state,
+            customer.pincode
+        ].filter(Boolean).join(", ");
+
+
+        // 9. PAYMENT INFORMATION
+
+        const paymentStatus = String(order.paymentStatus || "").toLowerCase();
+
+        if (paymentStatus === "paid") {
+
+            document.getElementById("confirmed-payment").textContent =
+                "Online Payment - Paid";
+
+        } else if (customer.payment === "cod") {
+
+            document.getElementById("confirmed-payment").textContent =
+                "Cash on Delivery";
+
+        } else {
+
+            document.getElementById("confirmed-payment").textContent =
+                "Online Payment - Pending Confirmation";
+
+        }
+
+
+        // 10. ORDER DATE
+
+        const orderDate = order.createdAt
+            ? new Date(order.createdAt)
+            : null;
+
+        document.getElementById("confirmed-date").textContent =
+            orderDate && !isNaN(orderDate.getTime())
+                ? orderDate.toLocaleString("en-IN")
+                : "Not available";
+
+    } catch (error) {
+
+        console.error("Order confirmation error:", error);
+
+        confirmationPage.innerHTML = `
+            <div class="confirmation-hero">
+                <h1>Order <span>Information Unavailable.</span></h1>
+
+                <p class="confirmation-message">
+                    We couldn't display your order information.
+                    Please check your account order history.
+                </p>
+
+                <a href="account.html" class="continue-shopping">
+                    VIEW MY ORDERS
+                </a>
             </div>
-
-            <strong>
-                ${formatPrice(product.price * product.quantity)}
-            </strong>
         `;
-
-        productsContainer.appendChild(item);
-
-    });
-
-    // 6. DISPLAY TOTAL
-
-    document.getElementById("confirmed-total").textContent =
-        formatPrice(order.total);
-
-    // 7. CUSTOMER DETAILS
-
-    const customer = order.customer;
-
-    document.getElementById("confirmed-name").textContent =
-        customer.name;
-
-    document.getElementById("confirmed-email").textContent =
-        customer.email;
-
-    document.getElementById("confirmed-phone").textContent =
-        customer.phone;
-
-    document.getElementById("confirmed-address").textContent =
-        `${customer.address}, ${customer.city}, ${customer.state} - ${customer.pincode}`;
-
-    document.getElementById("confirmed-payment").textContent =
-        customer.payment === "cod"
-            ? "Cash on Delivery"
-            : "Online Payment (Demo)";
-
-    // 8. ORDER DATE
-
-    const orderDate = new Date(order.createdAt);
-
-    document.getElementById("confirmed-date").textContent =
-        orderDate.toLocaleString("en-IN");
+    }
 }
 
 console.log("OWO Order Confirmation Loaded!");

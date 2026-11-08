@@ -1,0 +1,120 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>OWO | Customer Login</title>
+
+    <link rel="stylesheet" href="login.css">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=Playfair+Display:wght@500;600;700&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+</head>
+
+<body>
+
+    <header class="navbar">
+        <a href="index.html" class="logo">OWO<span>.</span></a>
+
+        <a href="index.html" class="back-link">
+            <i class="fa-solid fa-arrow-left"></i>
+            Back to Home
+        </a>
+    </header>
+
+    <main class="login-container">
+
+        <section class="login-image">
+            <div class="image-content">
+                <p>THE OWO EXPERIENCE</p>
+                <h1>YOUR STYLE.<br>YOUR IDENTITY.<br><span>YOUR OWO.</span></h1>
+                <p>Sign in and make every experience personal.</p>
+            </div>
+        </section>
+
+        <section class="login-form-section">
+
+            <div class="login-form-container">
+
+                <p class="eyebrow">WELCOME BACK</p>
+
+                <h2>Sign <span>In.</span></h2>
+
+                <p class="subtitle">
+                    Enter your account details to continue.
+                </p>
+
+                <form id="loginForm">
+
+                    <div class="form-group">
+                        <label for="email">EMAIL ADDRESS</label>
+                        <input
+                            type="email"
+                            id="email"
+                            placeholder="Enter your email"
+                            required
+                        >
+                    </div>
+
+                    <div class="form-group">
+                        <label for="password">PASSWORD</label>
+
+                        <div class="password-wrapper">
+                            <input
+                                type="password"
+                                id="password"
+                                placeholder="Enter your password"
+                                required
+                            >
+
+                            <button type="button" id="togglePassword" aria-label="Show password">
+                                <i class="fa-regular fa-eye"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <p id="message" class="message"></p>
+
+                    <button type="submit" class="login-btn" id="loginButton">
+                        SIGN IN
+                        <i class="fa-solid fa-arrow-right"></i>
+                    </button>
+
+                </form>
+
+                <div class="register-link">
+                    Don't have an account?
+                    <a href="register.html">Create Account</a>
+                </div>
+
+                <div class="login-footer">
+                    <a href="index.html">OWO</a>
+                    <span>© 2026 OWO. ALL RIGHTS RESERVED.</span>
+                </div>
+
+            </div>
+
+        </section>
+
+    </main>
+
+    <!-- CHECK CUSTOMER LOGIN STATUS -->
+
+    <script>
+        const customerToken = localStorage.getItem("owoCustomerToken");
+
+        if (customerToken) {
+            window.location.replace("account.html");
+        }
+    </script>
+
+    <script src="login.js"></script>
+
+</body>
+</html>

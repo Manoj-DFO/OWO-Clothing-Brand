@@ -20,6 +20,7 @@ const orderItems = document.getElementById("order-items");
 const deliveryInformation = document.getElementById("delivery-information");
 const trackingHistory = document.getElementById("tracking-history");
 
+
 // ============================================
 // CHECK HTML ELEMENTS
 // ============================================
@@ -38,9 +39,7 @@ if (
     !deliveryInformation ||
     !trackingHistory
 ) {
-    console.error(
-        "OWO Tracking Error: One or more HTML elements are missing."
-    );
+    console.error("OWO Tracking Error: One or more HTML elements are missing.");
 
 } else {
 
@@ -93,10 +92,40 @@ if (
     }
 
     function formatMoney(value) {
-        return "₹" + Number(value || 0).toLocaleString("en-IN", {
+        const amount = Number(value);
+
+        if (!Number.isFinite(amount)) {
+            return "Price unavailable";
+        }
+
+        return "₹" + amount.toLocaleString("en-IN", {
             minimumFractionDigits: 2,
             maximumFractionDigits: 2
         });
+    }
+
+    function getItemPrice(item) {
+        const possiblePrices = [
+            item.price,
+            item.unit_price,
+            item.product_price,
+            item.item_price,
+            item.unitPrice,
+            item.productPrice
+        ];
+
+        for (const value of possiblePrices) {
+            if (
+                value !== null &&
+                value !== undefined &&
+                value !== "" &&
+                Number.isFinite(Number(value))
+            ) {
+                return Number(value);
+            }
+        }
+
+        return null;
     }
 
     function statusClass(status) {
@@ -120,6 +149,7 @@ if (
 
         trackingResult.hidden = true;
     }
+
 
     // ============================================
     // ORDER SUMMARY
@@ -176,6 +206,7 @@ if (
             </div>
         `;
     }
+
 
     // ============================================
     // DELIVERY PROGRESS
@@ -262,6 +293,7 @@ if (
         `;
     }
 
+
     // ============================================
     // ORDER ITEMS
     // ============================================
@@ -277,37 +309,52 @@ if (
 
                 <h2>Items in Your Order</h2>
 
-                ${items.map(item => `
-                    <div class="item-row">
+                ${items.map(item => {
 
-                        <div>
-                            <div class="item-name">
-                                ${escapeHTML(item.product_name)}
+                    const unitPrice = getItemPrice(item);
+                    const quantity = Number(item.quantity) || 0;
+
+                    const itemTotal = unitPrice === null
+                        ? null
+                        : unitPrice * quantity;
+
+                    const size = item.size || item.product_size;
+
+                    return `
+                        <div class="item-row">
+
+                            <div>
+                                <div class="item-name">
+                                    ${escapeHTML(item.product_name || item.name)}
+                                </div>
+
+                                <div class="item-details">
+                                    Quantity: ${escapeHTML(quantity)}
+                                    ${
+                                        size
+                                            ? ` | Size: ${escapeHTML(size)}`
+                                            : ""
+                                    }
+                                </div>
                             </div>
 
-                            <div class="item-details">
-                                Quantity: ${escapeHTML(item.quantity)}
+                            <div class="item-price">
                                 ${
-                                    item.product_size
-                                        ? ` | Size: ${escapeHTML(item.product_size)}`
-                                        : ""
+                                    itemTotal === null
+                                        ? "Price unavailable"
+                                        : formatMoney(itemTotal)
                                 }
                             </div>
-                        </div>
 
-                        <div class="item-price">
-                            ${formatMoney(
-                                Number(item.unit_price) *
-                                Number(item.quantity)
-                            )}
                         </div>
+                    `;
 
-                    </div>
-                `).join("")}
+                }).join("")}
 
             </div>
         `;
     }
+
 
     // ============================================
     // DELIVERY INFORMATION
@@ -356,6 +403,7 @@ if (
             </div>
         `;
     }
+
 
     // ============================================
     // TRACKING HISTORY
@@ -413,12 +461,12 @@ if (
         `;
     }
 
+
     // ============================================
     // TRACK ORDER SUBMIT
     // ============================================
 
     trackingForm.addEventListener("submit", async function (event) {
-
         event.preventDefault();
 
         const formData = new FormData(trackingForm);
@@ -431,9 +479,7 @@ if (
             formData.get("customer_contact") || ""
         ).trim();
 
-        // Validate both fields.
         if (!orderNumber || !contact) {
-
             clearResults();
 
             showMessage(
@@ -444,7 +490,6 @@ if (
             return;
         }
 
-        // Loading state.
         trackButton.disabled = true;
         trackButtonText.textContent = "Checking...";
 
@@ -453,11 +498,7 @@ if (
         showMessage("Checking your order details...", "loading");
 
         try {
-
-            // Send tracking request to backend.
-            // IMPORTANT: Backend expects "contact", not "email" or "phone".
             const response = await fetch(`${TRACK_API}/orders/track`, {
-
                 method: "POST",
 
                 headers: {
@@ -468,47 +509,36 @@ if (
                     order_number: orderNumber,
                     contact: contact
                 })
-
             });
 
-            // Read server response.
             let data;
 
             try {
                 data = await response.json();
-
             } catch {
-                throw new Error(
-                    "The server returned an invalid response."
-                );
+                throw new Error("The server returned an invalid response.");
             }
 
-            // Check for API errors.
             if (!response.ok || data.success === false) {
-
                 throw new Error(
                     data.message ||
                     "Unable to find your order. Please check your details."
                 );
             }
 
-            // Support both response formats.
             const order = data.order || data;
 
             if (!order || !order.order_number) {
-
                 throw new Error(
                     "Order information was not returned by the server."
                 );
             }
 
-            // Display order information.
+            console.log("OWO Tracking Order Response:", order);
+
             renderSummary(order);
-
             renderProgress(order.order_status);
-
-            renderItems(order.items || []);
-
+            renderItems(order.items || order.order_items || []);
             renderDelivery(order);
 
             renderHistory(
@@ -518,7 +548,6 @@ if (
                 []
             );
 
-            // Show results.
             trackingResult.hidden = false;
 
             showMessage(
@@ -532,35 +561,27 @@ if (
             });
 
         } catch (error) {
-
             console.error("OWO Tracking Error:", error);
 
             clearResults();
 
             if (error instanceof TypeError) {
-
                 showMessage(
                     "Unable to connect to OWO. Please make sure the backend server is running.",
                     "error"
                 );
-
             } else {
-
                 showMessage(
                     error.message || "Something went wrong. Please try again.",
                     "error"
                 );
-
             }
 
         } finally {
-
             trackButton.disabled = false;
-
             trackButtonText.textContent = "Track Order";
-
         }
-
     });
-
 }
+
+console.log("OWO Tracking Page Loaded!");

@@ -15,6 +15,10 @@ const checkoutForm = document.getElementById("checkout-form");
 
 const placeOrderButton = document.querySelector(".place-order-button");
 
+const CUSTOMER_TOKEN_KEY = "owoCustomerToken";
+
+let isSubmitting = false;
+
 
 // 2. HELPER FUNCTIONS
 
@@ -31,8 +35,6 @@ function escapeHTML(value) {
         "'": "&#039;"
     })[char]);
 }
-
-// Get the product image from available image fields.
 
 function getProductImage(product) {
     return product.image_url || product.imageUrl || product.image || "";
@@ -106,8 +108,20 @@ checkoutForm.addEventListener("submit", async event => {
 
     event.preventDefault();
 
+    if (isSubmitting) return;
+
     if (cart.length === 0) {
         alert("Your shopping bag is empty.");
+        return;
+    }
+
+    // Check customer login.
+
+    const customerToken = localStorage.getItem(CUSTOMER_TOKEN_KEY);
+
+    if (!customerToken) {
+        alert("Please login before placing an order.");
+        window.location.href = "login.html";
         return;
     }
 
@@ -139,20 +153,21 @@ checkoutForm.addEventListener("submit", async event => {
         payment: paymentOption.value
     };
 
+    isSubmitting = true;
+
     placeOrderButton.disabled = true;
 
     placeOrderButton.textContent = "PROCESSING ORDER...";
 
     try {
 
-        // Send order to backend.
-
         const response = await fetch(API_URL, {
 
             method: "POST",
 
             headers: {
-                "Content-Type": "application/json"
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${customerToken}`
             },
 
             body: JSON.stringify({
@@ -166,10 +181,29 @@ checkoutForm.addEventListener("submit", async event => {
         const result = await response.json();
 
         if (!response.ok) {
+
+            if (response.status === 401 || response.status === 403) {
+
+                localStorage.removeItem(CUSTOMER_TOKEN_KEY);
+                localStorage.removeItem("owoCustomer");
+
+                alert("Your login session has expired. Please login again.");
+
+                window.location.href = "login.html";
+
+                return;
+            }
+
             throw new Error(result.message || "Unable to place order.");
         }
 
-        // Preserve product images for the confirmation page.
+        // Validate server response.
+
+        if (!result.order || !result.order.orderNumber) {
+            throw new Error("Order was received, but the confirmation details are missing. Please check My Account before trying again.");
+        }
+
+        // Preserve product images.
 
         const confirmationProducts = cart.map(product => ({
             ...product,
@@ -213,7 +247,9 @@ checkoutForm.addEventListener("submit", async event => {
 
         console.error("Checkout error:", error);
 
-        alert(error.message);
+        alert(error.message || "Unable to place order.");
+
+        isSubmitting = false;
 
         placeOrderButton.disabled = false;
 

@@ -48,7 +48,8 @@
                 <i class="fa-solid fa-magnifying-glass"></i>
             </a>
 
-            <a href="#" aria-label="Account">
+            <!-- CUSTOMER ACCOUNT -->
+            <a href="login.html" id="accountLink" aria-label="Account">
                 <i class="fa-regular fa-user"></i>
             </a>
 
@@ -498,6 +499,23 @@
 
 
     <script src="app.js"></script>
+
+    <!-- CUSTOMER ACCOUNT NAVIGATION -->
+
+    <script>
+        const accountLink = document.getElementById("accountLink");
+        const customerToken = localStorage.getItem("owoCustomerToken");
+
+        if (customerToken) {
+            accountLink.href = "account.html";
+            accountLink.setAttribute("aria-label", "My Account");
+            accountLink.title = "My Account";
+        } else {
+            accountLink.href = "login.html";
+            accountLink.setAttribute("aria-label", "Login");
+            accountLink.title = "Login";
+        }
+    </script>
 
 </body>
 </html>

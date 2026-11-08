@@ -8,6 +8,11 @@ require("dotenv").config();
 
 const { router: authRoutes, requireAdmin } = require("./auth");
 
+const {
+    router: customerAuthRoutes,
+    requireCustomer
+} = require("./customer-auth");
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -32,11 +37,14 @@ app.use(express.json({ limit: "1mb" }));
 // AUTHENTICATION
 // ===================================
 
-// Login is public.
-app.use("/api/admin", authRoutes);
+// ADMIN AUTHENTICATION
 
-// All remaining admin routes are protected.
+app.use("/api/admin", authRoutes);
 app.use("/api/admin", requireAdmin);
+
+// CUSTOMER AUTHENTICATION
+
+app.use("/api/auth", customerAuthRoutes);
 
 
 // ===================================
@@ -173,12 +181,45 @@ function validateProduct(data) {
 
 
 // ===================================
+// CUSTOMER DATABASE SETUP
+// ===================================
+
+async function initializeCustomerDatabase() {
+
+    await pool.query(`
+        CREATE TABLE IF NOT EXISTS users (
+            id BIGSERIAL PRIMARY KEY,
+            name VARCHAR(150) NOT NULL,
+            email VARCHAR(255) UNIQUE NOT NULL,
+            phone VARCHAR(20) NOT NULL,
+            password_hash TEXT NOT NULL,
+            created_at TIMESTAMPTZ DEFAULT NOW(),
+            updated_at TIMESTAMPTZ DEFAULT NOW()
+        )
+    `);
+
+    await pool.query(`
+        ALTER TABLE orders
+        ADD COLUMN IF NOT EXISTS user_id BIGINT
+        REFERENCES users(id) ON DELETE SET NULL
+    `);
+
+    await pool.query(`
+        CREATE INDEX IF NOT EXISTS idx_orders_user_id
+        ON orders(user_id)
+    `);
+
+    console.log("OWO customer database initialized.");
+
+}
+
+
+// ===================================
 // DELIVERY DATABASE SETUP
 // ===================================
 
 async function initializeDeliveryDatabase() {
 
-    // Add delivery information to existing orders table.
     await pool.query(`
         ALTER TABLE orders
         ADD COLUMN IF NOT EXISTS courier_name VARCHAR(150),
@@ -190,37 +231,26 @@ async function initializeDeliveryDatabase() {
         ADD COLUMN IF NOT EXISTS delivery_instructions TEXT
     `);
 
-
-    // Create order tracking history table.
     await pool.query(`
         CREATE TABLE IF NOT EXISTS order_tracking_events (
-
             id BIGSERIAL PRIMARY KEY,
-
             order_id BIGINT NOT NULL
                 REFERENCES orders(id) ON DELETE CASCADE,
-
             status VARCHAR(100) NOT NULL,
-
             description TEXT,
-
             location VARCHAR(255),
-
             event_time TIMESTAMPTZ NOT NULL DEFAULT NOW()
-
         )
     `);
 
-
-    // Index for faster tracking history lookup.
     await pool.query(`
         CREATE INDEX IF NOT EXISTS
         idx_order_tracking_events_order_id
         ON order_tracking_events(order_id)
     `);
 
-
     console.log("OWO delivery tracking database initialized.");
+
 }
 
 
@@ -244,12 +274,7 @@ async function addTrackingEvent(
             location
         )
         VALUES ($1, $2, $3, $4)`,
-        [
-            orderId,
-            status,
-            description,
-            location
-        ]
+        [orderId, status, description, location]
     );
 
 }
@@ -260,9 +285,7 @@ async function addTrackingEvent(
 // ===================================
 
 app.get("/", (req, res) => {
-
     res.send("OWO Backend is running!");
-
 });
 
 
@@ -284,24 +307,12 @@ app.get("/api/health", async (req, res) => {
 
         const result = await pool.query("SELECT NOW()");
 
-        console.log(
-            "Backend database:",
-            dbInfo.rows[0].current_database
-        );
-
-        console.log(
-            "Backend order count:",
-            orderCount.rows[0].count
-        );
-
         res.json({
-
             message: "OWO Backend is running!",
-
             database: "PostgreSQL connected successfully!",
-
-            time: result.rows[0].now
-
+            time: result.rows[0].now,
+            databaseName: dbInfo.rows[0].current_database,
+            totalOrders: Number(orderCount.rows[0].count)
         });
 
     } catch (error) {
@@ -398,11 +409,8 @@ app.post("/api/admin/products", async (req, res) => {
         );
 
         res.status(201).json({
-
             message: "Product added successfully!",
-
             product: result.rows[0]
-
         });
 
     } catch (error) {
@@ -486,11 +494,8 @@ app.patch("/api/admin/products/:id", async (req, res) => {
         }
 
         res.json({
-
             message: "Product updated successfully!",
-
             product: result.rows[0]
-
         });
 
     } catch (error) {
@@ -515,7 +520,6 @@ app.patch("/api/admin/products/:id/stock", async (req, res) => {
     try {
 
         const { id } = req.params;
-
         const { stock_quantity } = req.body;
 
         if (
@@ -556,11 +560,8 @@ app.patch("/api/admin/products/:id/stock", async (req, res) => {
         }
 
         res.json({
-
             message: "Product stock updated successfully!",
-
             product: result.rows[0]
-
         });
 
     } catch (error) {
@@ -610,11 +611,8 @@ app.delete("/api/admin/products/:id", async (req, res) => {
         }
 
         res.json({
-
             message: "Product removed from the store successfully!",
-
             product: result.rows[0]
-
         });
 
     } catch (error) {
@@ -632,9 +630,10 @@ app.delete("/api/admin/products/:id", async (req, res) => {
 
 // ===================================
 // CREATE CUSTOMER ORDER
+// LOGIN REQUIRED
 // ===================================
 
-app.post("/api/orders", async (req, res) => {
+app.post("/api/orders", requireCustomer, async (req, res) => {
 
     const {
         customer,
@@ -643,9 +642,6 @@ app.post("/api/orders", async (req, res) => {
     } = req.body;
 
     const requiredFields = [
-        "name",
-        "email",
-        "phone",
         "address",
         "city",
         "state",
@@ -660,16 +656,18 @@ app.post("/api/orders", async (req, res) => {
         )
     ) {
         return res.status(400).json({
-            message: "Please provide all customer details."
+            message: "Please provide all shipping details."
         });
     }
 
     if (
-        !/^[0-9]{10}$/.test(customer.phone) ||
-        !/^[0-9]{6}$/.test(customer.pincode)
+        !/^[0-9]{6}$/.test(customer.pincode.trim()) ||
+        customer.address.trim().length > 1000 ||
+        customer.city.trim().length > 150 ||
+        customer.state.trim().length > 150
     ) {
         return res.status(400).json({
-            message: "Invalid phone number or PIN code."
+            message: "Please provide valid shipping details."
         });
     }
 
@@ -692,8 +690,9 @@ app.post("/api/orders", async (req, res) => {
     for (const item of products) {
 
         if (
+            !item ||
+            !/^[1-9]\d*$/.test(String(item.id)) ||
             !Number.isSafeInteger(Number(item.id)) ||
-            Number(item.id) <= 0 ||
             !Number.isInteger(Number(item.quantity)) ||
             Number(item.quantity) < 1 ||
             Number(item.quantity) > 100
@@ -725,6 +724,21 @@ app.post("/api/orders", async (req, res) => {
 
         await client.query("BEGIN");
 
+        // Get the real customer details from the database.
+
+        const customerResult = await client.query(
+            `SELECT id, name, email, phone
+             FROM users
+             WHERE id = $1`,
+            [req.customer.id]
+        );
+
+        if (customerResult.rows.length === 0) {
+            throw new Error("Customer account not found. Please log in again.");
+        }
+
+        const account = customerResult.rows[0];
+
         const productIds = [
             ...new Set(products.map(item => Number(item.id)))
         ];
@@ -753,7 +767,6 @@ app.post("/api/orders", async (req, res) => {
         let total = 0;
 
         const orderItems = [];
-
         const stockRequirements = new Map();
 
         for (const item of products) {
@@ -761,15 +774,11 @@ app.post("/api/orders", async (req, res) => {
             const product = productMap.get(String(item.id));
 
             if (!product || !product.is_active) {
-                throw new Error(
-                    "A selected product is unavailable."
-                );
+                throw new Error("A selected product is unavailable.");
             }
 
             const quantity = Number(item.quantity);
-
             const price = Number(product.price);
-
             const availableSizes = product.sizes || [];
 
             if (availableSizes.length > 0) {
@@ -789,19 +798,14 @@ app.post("/api/orders", async (req, res) => {
                 (stockRequirements.get(String(item.id)) || 0) +
                 quantity;
 
-            stockRequirements.set(
-                String(item.id),
-                requiredStock
-            );
+            stockRequirements.set(String(item.id), requiredStock);
 
             orderItems.push({
-
                 id: product.id,
                 name: product.name,
                 size: item.size || null,
                 quantity,
                 price
-
             });
 
             total += price * quantity;
@@ -830,6 +834,7 @@ app.post("/api/orders", async (req, res) => {
 
         const orderResult = await client.query(
             `INSERT INTO orders (
+                user_id,
                 order_number,
                 customer_name,
                 email,
@@ -842,13 +847,19 @@ app.post("/api/orders", async (req, res) => {
                 total_amount,
                 order_status
             )
-            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
-            RETURNING id, order_number, total_amount, order_status, created_at`,
+            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+            RETURNING
+                id,
+                order_number,
+                total_amount,
+                order_status,
+                created_at`,
             [
+                account.id,
                 orderNumber,
-                customer.name.trim(),
-                customer.email.trim(),
-                customer.phone.trim(),
+                account.name,
+                account.email,
+                account.phone,
                 customer.address.trim(),
                 customer.city.trim(),
                 customer.state.trim(),
@@ -900,7 +911,6 @@ app.post("/api/orders", async (req, res) => {
 
         }
 
-        // Add first tracking event.
         await addTrackingEvent(
             client,
             savedOrder.id,
@@ -911,42 +921,24 @@ app.post("/api/orders", async (req, res) => {
         await client.query("COMMIT");
 
         res.status(201).json({
-
             message: "OWO order created successfully!",
-
             order: {
-
                 orderNumber: savedOrder.order_number,
-
                 total: Number(savedOrder.total_amount),
-
                 status: savedOrder.order_status,
-
                 paymentMethod: payment,
-
                 createdAt: savedOrder.created_at
-
             }
-
         });
 
     } catch (error) {
 
         if (client) {
-
             try {
-
                 await client.query("ROLLBACK");
-
             } catch (rollbackError) {
-
-                console.error(
-                    "Rollback error:",
-                    rollbackError.message
-                );
-
+                console.error("Rollback error:", rollbackError.message);
             }
-
         }
 
         console.error("Order creation error:", error.message);
@@ -967,11 +959,159 @@ app.post("/api/orders", async (req, res) => {
 
 
 // ===================================
-// CUSTOMER ORDER TRACKING
+// CUSTOMER MY ORDERS
 // ===================================
 
-// Customers verify using their order number
-// and registered email address OR phone number.
+app.get("/api/orders/my-orders", requireCustomer, async (req, res) => {
+
+    try {
+
+        const result = await pool.query(
+            `SELECT
+                id,
+                order_number,
+                total_amount,
+                payment_method,
+                order_status,
+                created_at,
+                estimated_delivery_date,
+                courier_name,
+                tracking_number,
+                shipped_at,
+                delivered_at,
+                current_location
+             FROM orders
+             WHERE user_id = $1
+             ORDER BY created_at DESC`,
+            [req.customer.id]
+        );
+
+        const orders = result.rows;
+
+        if (orders.length === 0) {
+            return res.json({
+                totalOrders: 0,
+                processing: 0,
+                shipping: 0,
+                delivered: 0,
+                cancelled: 0,
+                orders: []
+            });
+        }
+
+        const orderIds = orders.map(order => order.id);
+
+        const itemsResult = await pool.query(
+            `SELECT
+                order_id,
+                product_name,
+                product_size,
+                quantity,
+                unit_price
+             FROM order_items
+             WHERE order_id = ANY($1::bigint[])
+             ORDER BY id ASC`,
+            [orderIds]
+        );
+
+        const eventsResult = await pool.query(
+            `SELECT
+                order_id,
+                status,
+                description,
+                location,
+                event_time
+             FROM order_tracking_events
+             WHERE order_id = ANY($1::bigint[])
+             ORDER BY event_time ASC, id ASC`,
+            [orderIds]
+        );
+
+        const itemsByOrder = new Map();
+
+        for (const item of itemsResult.rows) {
+
+            const orderId = String(item.order_id);
+
+            if (!itemsByOrder.has(orderId)) {
+                itemsByOrder.set(orderId, []);
+            }
+
+            itemsByOrder.get(orderId).push({
+                product_name: item.product_name,
+                size: item.product_size,
+                quantity: Number(item.quantity),
+                price: Number(item.unit_price)
+            });
+
+        }
+
+        const eventsByOrder = new Map();
+
+        for (const event of eventsResult.rows) {
+
+            const orderId = String(event.order_id);
+
+            if (!eventsByOrder.has(orderId)) {
+                eventsByOrder.set(orderId, []);
+            }
+
+            eventsByOrder.get(orderId).push({
+                status: event.status,
+                description: event.description,
+                location: event.location,
+                event_time: event.event_time
+            });
+
+        }
+
+        const completeOrders = orders.map(order => ({
+            ...order,
+            total_amount: Number(order.total_amount),
+            items: itemsByOrder.get(String(order.id)) || [],
+            tracking_history: eventsByOrder.get(String(order.id)) || []
+        }));
+
+        res.json({
+
+            totalOrders: completeOrders.length,
+
+            processing: completeOrders.filter(order =>
+                ["Pending", "Processing", "Packed", "Payment Pending"].includes(order.order_status)
+            ).length,
+
+            shipping: completeOrders.filter(order =>
+                ["Shipped", "In Transit", "Out for Delivery"].includes(order.order_status)
+            ).length,
+
+            delivered: completeOrders.filter(order =>
+                order.order_status === "Delivered"
+            ).length,
+
+            cancelled: completeOrders.filter(order =>
+                ["Cancelled", "Delivery Failed"].includes(order.order_status)
+            ).length,
+
+            orders: completeOrders
+
+        });
+
+    } catch (error) {
+
+        console.error("My orders error:", error.message);
+
+        res.status(500).json({
+            message: "Unable to fetch your orders."
+        });
+
+    }
+
+});
+
+
+// ===================================
+// CUSTOMER ORDER TRACKING
+// ===================================
 
 app.post("/api/orders/track", async (req, res) => {
 
@@ -991,7 +1131,6 @@ app.post("/api/orders/track", async (req, res) => {
         }
 
         const cleanOrderNumber = order_number.trim();
-
         const cleanContact = contact.trim();
 
         if (
@@ -1003,7 +1142,6 @@ app.post("/api/orders/track", async (req, res) => {
             });
         }
 
-        // Verify both order number and customer contact.
         const orderResult = await pool.query(
             `SELECT
                 id,
@@ -1031,25 +1169,17 @@ app.post("/api/orders/track", async (req, res) => {
                 OR phone = $2
              )
              LIMIT 1`,
-            [
-                cleanOrderNumber,
-                cleanContact
-            ]
+            [cleanOrderNumber, cleanContact]
         );
 
-        // Generic error prevents revealing whether
-        // an order number or customer contact exists.
         if (orderResult.rows.length === 0) {
-
             return res.status(404).json({
                 message: "We couldn't find an order with those details. Please check and try again."
             });
-
         }
 
         const order = orderResult.rows[0];
 
-        // Fetch purchased products.
         const itemsResult = await pool.query(
             `SELECT
                 product_name,
@@ -1062,7 +1192,6 @@ app.post("/api/orders/track", async (req, res) => {
             [order.id]
         );
 
-        // Fetch complete tracking history.
         const eventsResult = await pool.query(
             `SELECT
                 status,
@@ -1082,51 +1211,28 @@ app.post("/api/orders/track", async (req, res) => {
             order: {
 
                 order_number: order.order_number,
-
                 customer_name: order.customer_name,
-
                 address: order.address,
-
                 city: order.city,
-
                 state: order.state,
-
                 pincode: order.pincode,
-
                 payment_method: order.payment_method,
-
                 total_amount: Number(order.total_amount),
-
                 order_status: order.order_status,
-
                 created_at: order.created_at,
-
                 courier_name: order.courier_name,
-
                 tracking_number: order.tracking_number,
-
-                estimated_delivery_date:
-                    order.estimated_delivery_date,
-
+                estimated_delivery_date: order.estimated_delivery_date,
                 shipped_at: order.shipped_at,
-
                 delivered_at: order.delivered_at,
-
                 current_location: order.current_location,
-
-                delivery_instructions:
-                    order.delivery_instructions,
+                delivery_instructions: order.delivery_instructions,
 
                 items: itemsResult.rows.map(item => ({
-
                     product_name: item.product_name,
-
                     size: item.product_size,
-
                     quantity: Number(item.quantity),
-
                     price: Number(item.unit_price)
-
                 })),
 
                 tracking_history: eventsResult.rows
@@ -1227,15 +1333,10 @@ app.get("/api/admin/orders", async (req, res) => {
             }
 
             itemsByOrder.get(orderId).push({
-
                 product_name: item.product_name,
-
                 size: item.product_size,
-
                 quantity: Number(item.quantity),
-
                 price: Number(item.unit_price)
-
             });
 
         }
@@ -1251,35 +1352,22 @@ app.get("/api/admin/orders", async (req, res) => {
             }
 
             eventsByOrder.get(orderId).push({
-
                 status: event.status,
-
                 description: event.description,
-
                 location: event.location,
-
                 event_time: event.event_time
-
             });
 
         }
 
         const completeOrders = orders.map(order => ({
-
             ...order,
-
             total_amount: Number(order.total_amount),
-
             items: itemsByOrder.get(String(order.id)) || [],
-
-            tracking_history:
-                eventsByOrder.get(String(order.id)) || []
-
+            tracking_history: eventsByOrder.get(String(order.id)) || []
         }));
 
-        console.log(
-            `Admin orders fetched: ${completeOrders.length}`
-        );
+        console.log(`Admin orders fetched: ${completeOrders.length}`);
 
         res.json(completeOrders);
 
@@ -1300,9 +1388,6 @@ app.get("/api/admin/orders", async (req, res) => {
 // UPDATE ORDER DELIVERY DETAILS (ADMIN)
 // ===================================
 
-// Admin can update courier, tracking number,
-// estimated delivery date and current location.
-
 app.patch("/api/admin/orders/:id/delivery", async (req, res) => {
 
     let client;
@@ -1321,17 +1406,14 @@ app.patch("/api/admin/orders/:id/delivery", async (req, res) => {
         }
 
         const allowedFields = [
-
             "courier_name",
             "tracking_number",
             "estimated_delivery_date",
             "current_location",
             "delivery_instructions"
-
         ];
 
         const updates = [];
-
         const values = [];
 
         for (const field of allowedFields) {
@@ -1380,13 +1462,11 @@ app.patch("/api/admin/orders/:id/delivery", async (req, res) => {
             }
 
             values.push(value === "" ? null : value);
-
             updates.push(`${field} = $${values.length}`);
 
         }
 
         const eventDescription = req.body.event_description;
-
         const eventLocation = req.body.event_location;
 
         if (
@@ -1483,10 +1563,6 @@ app.patch("/api/admin/orders/:id/delivery", async (req, res) => {
 
         }
 
-
-        // Add an event to tracking history if the admin
-        // supplies an event description or event location.
-
         if (eventDescription || eventLocation) {
 
             const currentOrder = await client.query(
@@ -1509,29 +1585,21 @@ app.patch("/api/admin/orders/:id/delivery", async (req, res) => {
         await client.query("COMMIT");
 
         res.json({
-
             message: "Delivery details updated successfully!",
-
             delivery: updatedOrder
-
         });
 
     } catch (error) {
 
         if (client) {
-
             try {
                 await client.query("ROLLBACK");
             } catch (rollbackError) {
                 console.error("Rollback error:", rollbackError.message);
             }
-
         }
 
-        console.error(
-            "Delivery update error:",
-            error.message
-        );
+        console.error("Delivery update error:", error.message);
 
         res.status(500).json({
             message: "Unable to update delivery details."
@@ -1552,11 +1620,6 @@ app.patch("/api/admin/orders/:id/delivery", async (req, res) => {
 // UPDATE CUSTOMER ORDER STATUS (ADMIN)
 // ===================================
 
-
-// ===================================
-// UPDATE CUSTOMER ORDER STATUS (ADMIN)
-// ===================================
-
 app.patch("/api/admin/orders/:id/status", async (req, res) => {
 
     let client;
@@ -1569,7 +1632,6 @@ app.patch("/api/admin/orders/:id/status", async (req, res) => {
             req.body.order_status || req.body.status;
 
         const description = req.body.description || null;
-
         const location = req.body.location || null;
 
         if (
@@ -1652,12 +1714,7 @@ app.patch("/api/admin/orders/:id/status", async (req, res) => {
                 shipped_at,
                 delivered_at,
                 current_location`,
-            [
-                status,
-                location,
-                id,
-                status
-            ]
+            [status, location, id, status]
         );
 
         if (result.rows.length === 0) {
@@ -1671,25 +1728,15 @@ app.patch("/api/admin/orders/:id/status", async (req, res) => {
         }
 
         const eventDescriptions = {
-
             "Pending": "Your order has been received.",
-
             "Processing": "Your order is being processed.",
-
             "Packed": "Your order has been packed and is ready for dispatch.",
-
             "Shipped": "Your order has been handed over to the courier.",
-
             "In Transit": "Your order is moving through the courier network.",
-
             "Out for Delivery": "Your order is out for delivery.",
-
             "Delivered": "Your order has been successfully delivered.",
-
             "Cancelled": "Your order has been cancelled.",
-
             "Delivery Failed": "The delivery attempt was unsuccessful."
-
         };
 
         await addTrackingEvent(
@@ -1703,29 +1750,21 @@ app.patch("/api/admin/orders/:id/status", async (req, res) => {
         await client.query("COMMIT");
 
         res.json({
-
             message: "Order status updated successfully!",
-
             order: result.rows[0]
-
         });
 
     } catch (error) {
 
         if (client) {
-
             try {
                 await client.query("ROLLBACK");
             } catch (rollbackError) {
                 console.error("Rollback error:", rollbackError.message);
             }
-
         }
 
-        console.error(
-            "Order status update error:",
-            error.message
-        );
+        console.error("Order status update error:", error.message);
 
         res.status(500).json({
             message: "Unable to update order status."
@@ -1742,17 +1781,13 @@ app.patch("/api/admin/orders/:id/status", async (req, res) => {
 });
 
 
-
 // ===================================
 // GLOBAL ERROR HANDLER
 // ===================================
 
 app.use((error, req, res, next) => {
 
-    console.error(
-        "Unexpected server error:",
-        error.message
-    );
+    console.error("Unexpected server error:", error.message);
 
     res.status(500).json({
         message: "An unexpected server error occurred."
@@ -1769,6 +1804,8 @@ async function startServer() {
 
     try {
 
+        await initializeCustomerDatabase();
+
         await initializeDeliveryDatabase();
 
         app.listen(PORT, () => {
@@ -1777,9 +1814,9 @@ async function startServer() {
                 `OWO Backend running at http://localhost:${PORT}`
             );
 
-            console.log(
-                "OWO Order Tracking API is ready."
-            );
+            console.log("OWO Order Tracking API is ready.");
+
+            console.log("OWO Customer Account API is ready.");
 
         });
 

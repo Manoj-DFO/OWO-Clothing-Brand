@@ -1,0 +1,199 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>OWO | My Account</title>
+
+    <link rel="stylesheet" href="account.css">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=Playfair+Display:wght@500;600;700&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+</head>
+
+<body>
+
+    <!-- NAVBAR -->
+
+    <header class="navbar">
+
+        <a href="index.html" class="logo">OWO<span>.</span></a>
+
+        <nav class="nav-links">
+            <a href="index.html">Home</a>
+            <a href="shop.html">Shop</a>
+            <a href="track-order.html">Track Order</a>
+        </nav>
+
+        <button id="logoutButton" class="logout-btn">
+            <i class="fa-solid fa-right-from-bracket"></i>
+            LOG OUT
+        </button>
+
+    </header>
+
+
+    <!-- ACCOUNT HEADER -->
+
+    <section class="account-header">
+
+        <div>
+            <p class="eyebrow">YOUR OWO ACCOUNT</p>
+            <h1>My <span>Account.</span></h1>
+            <p>Manage your profile and keep track of your orders.</p>
+        </div>
+
+    </section>
+
+
+    <!-- ACCOUNT CONTENT -->
+
+    <main class="account-container">
+
+        <!-- CUSTOMER PROFILE -->
+
+        <section class="profile-card">
+
+            <div class="profile-heading">
+
+                <div class="profile-avatar">
+                    <i class="fa-regular fa-user"></i>
+                </div>
+
+                <div>
+                    <p class="eyebrow">CUSTOMER PROFILE</p>
+                    <h2 id="customerName">Loading...</h2>
+                </div>
+
+            </div>
+
+            <div class="profile-details">
+
+                <div class="profile-detail">
+                    <span>EMAIL ADDRESS</span>
+                    <p id="customerEmail">Loading...</p>
+                </div>
+
+                <div class="profile-detail">
+                    <span>PHONE NUMBER</span>
+                    <p id="customerPhone">Loading...</p>
+                </div>
+
+                <div class="profile-detail">
+                    <span>MEMBER SINCE</span>
+                    <p id="customerSince">Loading...</p>
+                </div>
+
+            </div>
+
+        </section>
+
+
+        <!-- ORDER SUMMARY -->
+
+        <section class="orders-section">
+
+            <div class="section-heading">
+
+                <div>
+                    <p class="eyebrow">YOUR PURCHASES</p>
+                    <h2>Order <span>Overview.</span></h2>
+                </div>
+
+                <a href="shop.html" class="shop-link">
+                    CONTINUE SHOPPING
+                    <i class="fa-solid fa-arrow-right"></i>
+                </a>
+
+            </div>
+
+
+            <div class="stats-grid">
+
+                <div class="stat-card">
+                    <p>TOTAL ORDERS</p>
+                    <h3 id="totalOrders">0</h3>
+                    <i class="fa-solid fa-bag-shopping"></i>
+                </div>
+
+                <div class="stat-card">
+                    <p>PROCESSING</p>
+                    <h3 id="processingOrders">0</h3>
+                    <i class="fa-solid fa-box"></i>
+                </div>
+
+                <div class="stat-card">
+                    <p>SHIPPING</p>
+                    <h3 id="shippingOrders">0</h3>
+                    <i class="fa-solid fa-truck"></i>
+                </div>
+
+                <div class="stat-card">
+                    <p>DELIVERED</p>
+                    <h3 id="deliveredOrders">0</h3>
+                    <i class="fa-solid fa-circle-check"></i>
+                </div>
+
+                <div class="stat-card">
+                    <p>CANCELLED</p>
+                    <h3 id="cancelledOrders">0</h3>
+                    <i class="fa-solid fa-circle-xmark"></i>
+                </div>
+
+            </div>
+
+        </section>
+
+
+        <!-- ORDER HISTORY -->
+
+        <section class="order-history">
+
+            <div class="section-heading">
+                <div>
+                    <p class="eyebrow">PURCHASE HISTORY</p>
+                    <h2>My <span>Orders.</span></h2>
+                </div>
+            </div>
+
+            <div id="ordersContainer" class="orders-container">
+
+                <div class="loading-message">
+                    Loading your orders...
+                </div>
+
+            </div>
+
+        </section>
+
+
+        <!-- MESSAGE -->
+
+        <p id="accountMessage" class="account-message"></p>
+
+    </main>
+
+
+    <!-- FOOTER -->
+
+    <footer class="footer">
+
+        <a href="index.html" class="logo">OWO<span>.</span></a>
+
+        <p>FASHION IS PERSONAL. MAKE IT YOURS.</p>
+
+        <span>© 2026 OWO. ALL RIGHTS RESERVED.</span>
+
+    </footer>
+
+
+    <script src="account.js"></script>
+
+</body>
+</html>
