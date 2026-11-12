@@ -1,4 +1,3 @@
-
 const express = require("express");
 const cors = require("cors");
 const crypto = require("crypto");
@@ -37,12 +36,8 @@ app.use(express.json({ limit: "1mb" }));
 // AUTHENTICATION
 // ===================================
 
-// ADMIN AUTHENTICATION
-
 app.use("/api/admin", authRoutes);
 app.use("/api/admin", requireAdmin);
-
-// CUSTOMER AUTHENTICATION
 
 app.use("/api/auth", customerAuthRoutes);
 
@@ -70,6 +65,31 @@ const ALLOWED_ORDER_STATUSES = [
     "Delivered",
     "Cancelled",
     "Delivery Failed"
+];
+
+const CANCELLATION_REASONS = [
+    "Ordered by mistake",
+    "Found a better price",
+    "Delivery taking too long",
+    "Want to change the order",
+    "Other"
+];
+
+const RETURN_REASONS = [
+    "Damaged item",
+    "Defective item",
+    "Wrong item received",
+    "Size or fit issue",
+    "Quality not as expected",
+    "Missing parts or accessories",
+    "Other"
+];
+
+const RETURN_STATUSES = [
+    "Approved",
+    "Rejected",
+    "Received",
+    "Refunded"
 ];
 
 
@@ -247,6 +267,54 @@ async function initializeDeliveryDatabase() {
         CREATE INDEX IF NOT EXISTS
         idx_order_tracking_events_order_id
         ON order_tracking_events(order_id)
+    `);
+
+    // CUSTOMER CANCELLATION REQUESTS
+
+    await pool.query(`
+        CREATE TABLE IF NOT EXISTS order_cancellation_requests (
+            id BIGSERIAL PRIMARY KEY,
+            order_id BIGINT NOT NULL UNIQUE
+                REFERENCES orders(id) ON DELETE CASCADE,
+            user_id BIGINT NOT NULL
+                REFERENCES users(id) ON DELETE CASCADE,
+            reason VARCHAR(150) NOT NULL,
+            description TEXT,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )
+    `);
+
+    // CUSTOMER RETURN REQUESTS
+
+    await pool.query(`
+        CREATE TABLE IF NOT EXISTS order_return_requests (
+            id BIGSERIAL PRIMARY KEY,
+            order_id BIGINT NOT NULL UNIQUE
+                REFERENCES orders(id) ON DELETE CASCADE,
+            user_id BIGINT NOT NULL
+                REFERENCES users(id) ON DELETE CASCADE,
+            reason VARCHAR(150) NOT NULL,
+            description TEXT NOT NULL,
+            status VARCHAR(50) NOT NULL DEFAULT 'Requested'
+                CHECK (
+                    status IN (
+                        'Requested',
+                        'Approved',
+                        'Rejected',
+                        'Received',
+                        'Refunded'
+                    )
+                ),
+            admin_note TEXT,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )
+    `);
+
+    await pool.query(`
+        CREATE INDEX IF NOT EXISTS
+        idx_order_return_requests_user_id
+        ON order_return_requests(user_id)
     `);
 
     console.log("OWO delivery tracking database initialized.");
@@ -724,8 +792,6 @@ app.post("/api/orders", requireCustomer, async (req, res) => {
 
         await client.query("BEGIN");
 
-        // Get the real customer details from the database.
-
         const customerResult = await client.query(
             `SELECT id, name, email, phone
              FROM users
@@ -959,6 +1025,390 @@ app.post("/api/orders", requireCustomer, async (req, res) => {
 
 
 // ===================================
+// CUSTOMER CANCEL ORDER
+// LOGIN REQUIRED
+// CANCELLATION ONLY BEFORE SHIPPING
+// ===================================
+
+app.post("/api/orders/:id/cancel", requireCustomer, async (req, res) => {
+
+    let client;
+
+    try {
+
+        const { id } = req.params;
+        const { reason, description } = req.body;
+
+        if (
+            !/^[1-9]\d*$/.test(id) ||
+            !Number.isSafeInteger(Number(id))
+        ) {
+            return res.status(400).json({
+                message: "Invalid order ID."
+            });
+        }
+
+        if (
+            typeof reason !== "string" ||
+            !CANCELLATION_REASONS.includes(reason)
+        ) {
+            return res.status(400).json({
+                message: "Please select a valid cancellation reason."
+            });
+        }
+
+        if (
+            description != null &&
+            (
+                typeof description !== "string" ||
+                description.trim().length > 1000
+            )
+        ) {
+            return res.status(400).json({
+                message: "Cancellation description must be 1000 characters or less."
+            });
+        }
+
+        client = await pool.connect();
+
+        await client.query("BEGIN");
+
+        const orderResult = await client.query(
+            `SELECT id, order_number, order_status, payment_method
+             FROM orders
+             WHERE id = $1 AND user_id = $2
+             FOR UPDATE`,
+            [id, req.customer.id]
+        );
+
+        if (orderResult.rows.length === 0) {
+
+            await client.query("ROLLBACK");
+
+            return res.status(404).json({
+                message: "Order not found."
+            });
+        }
+
+        const order = orderResult.rows[0];
+
+        // Customer can cancel ONLY before the order is shipped.
+
+        const cancellableStatuses = [
+            "Pending",
+            "Payment Pending",
+            "Processing",
+            "Packed"
+        ];
+
+        if (!cancellableStatuses.includes(order.order_status)) {
+
+            await client.query("ROLLBACK");
+
+            return res.status(400).json({
+                message: "This order can only be cancelled before it is shipped."
+            });
+        }
+
+        const existingRequest = await client.query(
+            `SELECT id
+             FROM order_cancellation_requests
+             WHERE order_id = $1`,
+            [id]
+        );
+
+        if (existingRequest.rows.length > 0) {
+
+            await client.query("ROLLBACK");
+
+            return res.status(409).json({
+                message: "A cancellation request already exists for this order."
+            });
+        }
+
+        await client.query(
+            `INSERT INTO order_cancellation_requests (
+                order_id,
+                user_id,
+                reason,
+                description
+            )
+            VALUES ($1, $2, $3, $4)`,
+            [
+                id,
+                req.customer.id,
+                reason,
+                description ? description.trim() : null
+            ]
+        );
+
+        // Restore COD stock because the order has not been shipped.
+
+        if (order.payment_method === "cod") {
+
+            await client.query(
+                `UPDATE products p
+                 SET stock_quantity = p.stock_quantity + item_totals.quantity
+                 FROM (
+                     SELECT
+                        product_id,
+                        SUM(quantity)::INTEGER AS quantity
+                     FROM order_items
+                     WHERE order_id = $1
+                       AND product_id IS NOT NULL
+                     GROUP BY product_id
+                 ) AS item_totals
+                 WHERE p.id = item_totals.product_id`,
+                [id]
+            );
+
+        }
+
+        await client.query(
+            `UPDATE orders
+             SET order_status = 'Cancelled'
+             WHERE id = $1`,
+            [id]
+        );
+
+        const trackingDescription =
+            `Order cancelled by customer. Reason: ${reason}` +
+            (description && description.trim()
+                ? `. Details: ${description.trim()}`
+                : "");
+
+        await addTrackingEvent(
+            client,
+            id,
+            "Cancelled",
+            trackingDescription
+        );
+
+        await client.query("COMMIT");
+
+        res.json({
+            message: "Your order has been cancelled successfully.",
+
+            order: {
+                id: order.id,
+                order_number: order.order_number,
+                order_status: "Cancelled"
+            }
+        });
+
+    } catch (error) {
+
+        if (client) {
+            try {
+                await client.query("ROLLBACK");
+            } catch (rollbackError) {
+                console.error("Rollback error:", rollbackError.message);
+            }
+        }
+
+        console.error("Customer cancellation error:", error.message);
+
+        if (error.code === "23505") {
+            return res.status(409).json({
+                message: "A cancellation request already exists for this order."
+            });
+        }
+
+        res.status(500).json({
+            message: "Unable to cancel this order right now."
+        });
+
+    } finally {
+
+        if (client) {
+            client.release();
+        }
+
+    }
+
+});
+
+
+// ===================================
+// CUSTOMER RETURN ORDER
+// RETURN AVAILABLE FOR 5 DAYS
+// ===================================
+
+app.post("/api/orders/:id/return", requireCustomer, async (req, res) => {
+
+    let client;
+
+    try {
+
+        const { id } = req.params;
+        const { reason, description } = req.body;
+
+        if (
+            !/^[1-9]\d*$/.test(id) ||
+            !Number.isSafeInteger(Number(id))
+        ) {
+            return res.status(400).json({
+                message: "Invalid order ID."
+            });
+        }
+
+        if (
+            typeof reason !== "string" ||
+            !RETURN_REASONS.includes(reason)
+        ) {
+            return res.status(400).json({
+                message: "Please select a valid return reason."
+            });
+        }
+
+        if (
+            typeof description !== "string" ||
+            !description.trim() ||
+            description.trim().length > 2000
+        ) {
+            return res.status(400).json({
+                message: "Please provide return details. Maximum 2000 characters."
+            });
+        }
+
+        client = await pool.connect();
+
+        await client.query("BEGIN");
+
+        const orderResult = await client.query(
+            `SELECT
+                id,
+                order_number,
+                order_status,
+                delivered_at,
+                NOW() AS current_time
+             FROM orders
+             WHERE id = $1 AND user_id = $2
+             FOR UPDATE`,
+            [id, req.customer.id]
+        );
+
+        if (orderResult.rows.length === 0) {
+            await client.query("ROLLBACK");
+
+            return res.status(404).json({
+                message: "Order not found."
+            });
+        }
+
+        const order = orderResult.rows[0];
+
+        if (
+            order.order_status !== "Delivered" ||
+            !order.delivered_at
+        ) {
+            await client.query("ROLLBACK");
+
+            return res.status(400).json({
+                message: "You can request a return only after the order is delivered."
+            });
+        }
+
+        const eligibilityResult = await client.query(
+            `SELECT
+                NOW() <= $1::timestamptz + INTERVAL '5 days'
+                AS is_eligible`,
+            [order.delivered_at]
+        );
+
+        if (!eligibilityResult.rows[0].is_eligible) {
+            await client.query("ROLLBACK");
+
+            return res.status(400).json({
+                message: "The 5-day return period has expired."
+            });
+        }
+
+        const existingRequest = await client.query(
+            `SELECT id
+             FROM order_return_requests
+             WHERE order_id = $1`,
+            [id]
+        );
+
+        if (existingRequest.rows.length > 0) {
+            await client.query("ROLLBACK");
+
+            return res.status(409).json({
+                message: "A return request has already been submitted for this order."
+            });
+        }
+
+        const returnResult = await client.query(
+            `INSERT INTO order_return_requests (
+                order_id,
+                user_id,
+                reason,
+                description
+            )
+            VALUES ($1, $2, $3, $4)
+            RETURNING
+                id,
+                reason,
+                description,
+                status,
+                created_at`,
+            [
+                id,
+                req.customer.id,
+                reason,
+                description.trim()
+            ]
+        );
+
+        await addTrackingEvent(
+            client,
+            id,
+            "Return Requested",
+            `Customer requested a return. Reason: ${reason}. Details: ${description.trim()}`
+        );
+
+        await client.query("COMMIT");
+
+        res.status(201).json({
+            message: "Your return request has been submitted successfully.",
+            return_request: returnResult.rows[0]
+        });
+
+    } catch (error) {
+
+        if (client) {
+            try {
+                await client.query("ROLLBACK");
+            } catch (rollbackError) {
+                console.error("Rollback error:", rollbackError.message);
+            }
+        }
+
+        console.error("Customer return error:", error.message);
+
+        if (error.code === "23505") {
+            return res.status(409).json({
+                message: "A return request already exists for this order."
+            });
+        }
+
+        res.status(500).json({
+            message: "Unable to submit your return request right now."
+        });
+
+    } finally {
+
+        if (client) {
+            client.release();
+        }
+
+    }
+
+});
+
+
+// ===================================
 // CUSTOMER MY ORDERS
 // ===================================
 
@@ -979,7 +1429,19 @@ app.get("/api/orders/my-orders", requireCustomer, async (req, res) => {
                 tracking_number,
                 shipped_at,
                 delivered_at,
-                current_location
+                current_location,
+                CASE
+                    WHEN delivered_at IS NOT NULL
+                    THEN delivered_at + INTERVAL '5 days'
+                    ELSE NULL
+                END AS return_eligible_until,
+                CASE
+                    WHEN delivered_at IS NOT NULL
+                         AND order_status = 'Delivered'
+                         AND NOW() <= delivered_at + INTERVAL '5 days'
+                    THEN TRUE
+                    ELSE FALSE
+                END AS is_return_eligible
              FROM orders
              WHERE user_id = $1
              ORDER BY created_at DESC`,
@@ -1027,6 +1489,31 @@ app.get("/api/orders/my-orders", requireCustomer, async (req, res) => {
             [orderIds]
         );
 
+        const cancellationResult = await pool.query(
+            `SELECT
+                order_id,
+                reason,
+                description,
+                created_at
+             FROM order_cancellation_requests
+             WHERE order_id = ANY($1::bigint[])`,
+            [orderIds]
+        );
+
+        const returnResult = await pool.query(
+            `SELECT
+                order_id,
+                reason,
+                description,
+                status,
+                admin_note,
+                created_at,
+                updated_at
+             FROM order_return_requests
+             WHERE order_id = ANY($1::bigint[])`,
+            [orderIds]
+        );
+
         const itemsByOrder = new Map();
 
         for (const item of itemsResult.rows) {
@@ -1065,11 +1552,47 @@ app.get("/api/orders/my-orders", requireCustomer, async (req, res) => {
 
         }
 
+        const cancellationsByOrder = new Map();
+
+        for (const cancellation of cancellationResult.rows) {
+
+            cancellationsByOrder.set(
+                String(cancellation.order_id),
+                {
+                    reason: cancellation.reason,
+                    description: cancellation.description,
+                    created_at: cancellation.created_at
+                }
+            );
+
+        }
+
+        const returnsByOrder = new Map();
+
+        for (const returnRequest of returnResult.rows) {
+
+            returnsByOrder.set(
+                String(returnRequest.order_id),
+                {
+                    reason: returnRequest.reason,
+                    description: returnRequest.description,
+                    status: returnRequest.status,
+                    admin_note: returnRequest.admin_note,
+                    created_at: returnRequest.created_at,
+                    updated_at: returnRequest.updated_at
+                }
+            );
+
+        }
+
         const completeOrders = orders.map(order => ({
             ...order,
             total_amount: Number(order.total_amount),
             items: itemsByOrder.get(String(order.id)) || [],
-            tracking_history: eventsByOrder.get(String(order.id)) || []
+            tracking_history: eventsByOrder.get(String(order.id)) || [],
+            cancellation: cancellationsByOrder.get(String(order.id)) || null,
+            return_request: returnsByOrder.get(String(order.id)) || null,
+            is_return_eligible: order.is_return_eligible === true
         }));
 
         res.json({
@@ -1378,6 +1901,168 @@ app.get("/api/admin/orders", async (req, res) => {
         res.status(500).json({
             message: "Unable to fetch customer orders."
         });
+
+    }
+
+});
+
+
+// ===================================
+// GET ALL RETURN REQUESTS (ADMIN)
+// ===================================
+
+app.get("/api/admin/returns", async (req, res) => {
+
+    try {
+
+        const result = await pool.query(
+            `SELECT
+                rr.id,
+                rr.order_id,
+                rr.user_id,
+                rr.reason,
+                rr.description,
+                rr.status,
+                rr.admin_note,
+                rr.created_at,
+                rr.updated_at,
+                o.order_number,
+                o.total_amount,
+                o.payment_method,
+                o.order_status,
+                o.delivered_at,
+                o.customer_name,
+                o.email,
+                o.phone
+             FROM order_return_requests rr
+             INNER JOIN orders o ON o.id = rr.order_id
+             ORDER BY rr.created_at DESC`
+        );
+
+        res.json(result.rows.map(item => ({
+            ...item,
+            total_amount: Number(item.total_amount)
+        })));
+
+    } catch (error) {
+
+        console.error("Admin returns fetch error:", error.message);
+
+        res.status(500).json({
+            message: "Unable to fetch return requests."
+        });
+
+    }
+
+});
+
+
+// ===================================
+// UPDATE RETURN REQUEST (ADMIN)
+// ===================================
+
+app.patch("/api/admin/returns/:id", async (req, res) => {
+
+    let client;
+
+    try {
+
+        const { id } = req.params;
+        const { status, admin_note } = req.body;
+
+        if (
+            !/^[1-9]\d*$/.test(id) ||
+            !Number.isSafeInteger(Number(id))
+        ) {
+            return res.status(400).json({
+                message: "Invalid return request ID."
+            });
+        }
+
+        if (!RETURN_STATUSES.includes(status)) {
+            return res.status(400).json({
+                message: "Invalid return request status."
+            });
+        }
+
+        if (
+            admin_note != null &&
+            (
+                typeof admin_note !== "string" ||
+                admin_note.trim().length > 2000
+            )
+        ) {
+            return res.status(400).json({
+                message: "Admin note must be 2000 characters or less."
+            });
+        }
+
+        client = await pool.connect();
+
+        await client.query("BEGIN");
+
+        const result = await client.query(
+            `UPDATE order_return_requests
+             SET
+                status = $1,
+                admin_note = $2,
+                updated_at = NOW()
+             WHERE id = $3
+             RETURNING *`,
+            [
+                status,
+                admin_note ? admin_note.trim() : null,
+                id
+            ]
+        );
+
+        if (result.rows.length === 0) {
+            await client.query("ROLLBACK");
+
+            return res.status(404).json({
+                message: "Return request not found."
+            });
+        }
+
+        const returnRequest = result.rows[0];
+
+        await addTrackingEvent(
+            client,
+            returnRequest.order_id,
+            `Return ${status}`,
+            admin_note && admin_note.trim()
+                ? `Return request ${status.toLowerCase()}. Admin note: ${admin_note.trim()}`
+                : `Your return request has been ${status.toLowerCase()}.`
+        );
+
+        await client.query("COMMIT");
+
+        res.json({
+            message: "Return request updated successfully.",
+            return_request: returnRequest
+        });
+
+    } catch (error) {
+
+        if (client) {
+            try {
+                await client.query("ROLLBACK");
+            } catch (rollbackError) {
+                console.error("Rollback error:", rollbackError.message);
+            }
+        }
+
+        console.error("Admin return update error:", error.message);
+
+        res.status(500).json({
+            message: "Unable to update return request."
+        });
+
+    } finally {
+
+        if (client) {
+            client.release();
+        }
 
     }
 

@@ -6,6 +6,42 @@ const pool = require("./db");
 
 const router = express.Router();
 
+const TOKEN_EXPIRY = "7d";
+
+// ===================================
+// JWT CONFIGURATION
+// ===================================
+
+function getJwtSecret() {
+    const secret = process.env.JWT_SECRET;
+
+    if (!secret || secret.length < 32) {
+        throw new Error(
+            "JWT_SECRET must be configured with at least 32 characters."
+        );
+    }
+
+    return secret;
+}
+
+// ===================================
+// GENERATE CUSTOMER TOKEN
+// ===================================
+
+function generateCustomerToken(customerId) {
+    return jwt.sign(
+        {
+            id: String(customerId),
+            role: "customer"
+        },
+        getJwtSecret(),
+        {
+            expiresIn: TOKEN_EXPIRY,
+            algorithm: "HS256"
+        }
+    );
+}
+
 // ===================================
 // CUSTOMER REGISTRATION
 // ===================================
@@ -22,11 +58,11 @@ router.post("/register", async (req, res) => {
             !name.trim() ||
             !email.trim() ||
             !phone.trim() ||
-            password.length < 8 ||
-            password.length > 72
+            Buffer.byteLength(password, "utf8") < 8 ||
+            Buffer.byteLength(password, "utf8") > 72
         ) {
             return res.status(400).json({
-                message: "Enter valid details. Password must be at least 8 characters."
+                message: "Enter valid details. Password must be 8–72 bytes."
             });
         }
 
@@ -52,12 +88,11 @@ router.post("/register", async (req, res) => {
             });
         }
 
-        if (!process.env.JWT_SECRET) {
-            throw new Error("JWT_SECRET is not configured.");
-        }
-
         const existingUser = await pool.query(
-            `SELECT id FROM users WHERE LOWER(email) = LOWER($1)`,
+            `SELECT id
+             FROM users
+             WHERE LOWER(email) = LOWER($1)
+             LIMIT 1`,
             [cleanEmail]
         );
 
@@ -78,24 +113,13 @@ router.post("/register", async (req, res) => {
 
         const customer = result.rows[0];
 
-        // GENERATE CUSTOMER TOKEN
+        const token = generateCustomerToken(customer.id);
 
-        const token = jwt.sign(
-            {
-                id: customer.id,
-                role: "customer"
-            },
-            process.env.JWT_SECRET,
-            { expiresIn: "7d" }
-        );
-
-        // SEND TOKEN AND CUSTOMER DETAILS
-
-        res.status(201).json({
+        return res.status(201).json({
             message: "Account created successfully!",
             token,
             customer: {
-                id: customer.id,
+                id: String(customer.id),
                 name: customer.name,
                 email: customer.email,
                 phone: customer.phone
@@ -103,7 +127,7 @@ router.post("/register", async (req, res) => {
         });
 
     } catch (error) {
-        console.error("Customer registration error:", error.message);
+        console.error("Customer registration error:", error);
 
         if (error.code === "23505") {
             return res.status(409).json({
@@ -111,12 +135,11 @@ router.post("/register", async (req, res) => {
             });
         }
 
-        res.status(500).json({
+        return res.status(500).json({
             message: "Unable to create your account."
         });
     }
 });
-
 
 // ===================================
 // CUSTOMER LOGIN
@@ -130,10 +153,12 @@ router.post("/login", async (req, res) => {
             typeof email !== "string" ||
             typeof password !== "string" ||
             !email.trim() ||
-            !password
+            !password ||
+            email.trim().length > 255 ||
+            Buffer.byteLength(password, "utf8") > 72
         ) {
             return res.status(400).json({
-                message: "Enter your email and password."
+                message: "Enter a valid email and password."
             });
         }
 
@@ -166,24 +191,13 @@ router.post("/login", async (req, res) => {
             });
         }
 
-        if (!process.env.JWT_SECRET) {
-            throw new Error("JWT_SECRET is not configured.");
-        }
+        const token = generateCustomerToken(user.id);
 
-        const token = jwt.sign(
-            {
-                id: user.id,
-                role: "customer"
-            },
-            process.env.JWT_SECRET,
-            { expiresIn: "7d" }
-        );
-
-        res.json({
+        return res.json({
             message: "Login successful!",
             token,
             customer: {
-                id: user.id,
+                id: String(user.id),
                 name: user.name,
                 email: user.email,
                 phone: user.phone
@@ -191,14 +205,13 @@ router.post("/login", async (req, res) => {
         });
 
     } catch (error) {
-        console.error("Customer login error:", error.message);
+        console.error("Customer login error:", error);
 
-        res.status(500).json({
+        return res.status(500).json({
             message: "Unable to log in right now."
         });
     }
 });
-
 
 // ===================================
 // CUSTOMER AUTHENTICATION MIDDLEWARE
@@ -207,39 +220,68 @@ router.post("/login", async (req, res) => {
 function requireCustomer(req, res, next) {
     const authHeader = req.headers.authorization;
 
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    if (typeof authHeader !== "string") {
         return res.status(401).json({
             message: "Please log in to continue."
         });
     }
 
-    const token = authHeader.split(" ")[1];
+    const match = authHeader.match(/^Bearer\s+(\S+)$/i);
+
+    if (!match) {
+        return res.status(401).json({
+            message: "Invalid authorization format."
+        });
+    }
 
     try {
         const decoded = jwt.verify(
-            token,
-            process.env.JWT_SECRET
+            match[1],
+            getJwtSecret(),
+            {
+                algorithms: ["HS256"]
+            }
         );
 
-        if (decoded.role !== "customer" || !decoded.id) {
+        const customerId = decoded.id;
+
+        const validId =
+            (
+                typeof customerId === "string" &&
+                /^[1-9][0-9]*$/.test(customerId)
+            ) ||
+            (
+                typeof customerId === "number" &&
+                Number.isSafeInteger(customerId) &&
+                customerId > 0
+            );
+
+        if (decoded.role !== "customer" || !validId) {
             return res.status(403).json({
                 message: "Customer access only."
             });
         }
 
         req.customer = {
-            id: decoded.id
+            id: String(customerId)
         };
 
-        next();
+        return next();
 
     } catch (error) {
+        if (error.message.startsWith("JWT_SECRET")) {
+            console.error("Customer JWT configuration error:", error);
+
+            return res.status(500).json({
+                message: "Authentication service is not configured."
+            });
+        }
+
         return res.status(401).json({
             message: "Your session is invalid or expired. Please log in again."
         });
     }
 }
-
 
 // ===================================
 // GET LOGGED-IN CUSTOMER
@@ -260,19 +302,30 @@ router.get("/me", requireCustomer, async (req, res) => {
             });
         }
 
-        res.json({
-            customer: result.rows[0]
+        const customer = result.rows[0];
+
+        return res.json({
+            customer: {
+                id: String(customer.id),
+                name: customer.name,
+                email: customer.email,
+                phone: customer.phone,
+                created_at: customer.created_at
+            }
         });
 
     } catch (error) {
-        console.error("Customer profile error:", error.message);
+        console.error("Customer profile error:", error);
 
-        res.status(500).json({
+        return res.status(500).json({
             message: "Unable to fetch customer profile."
         });
     }
 });
 
+// ===================================
+// EXPORT
+// ===================================
 
 module.exports = {
     router,

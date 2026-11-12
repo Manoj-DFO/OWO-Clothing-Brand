@@ -1,4 +1,3 @@
-
 // ===================================
 // OWO - CUSTOMER ACCOUNT DASHBOARD
 // ===================================
@@ -19,11 +18,21 @@ if (!token) {
 
 // API REQUEST HELPER
 
-async function apiRequest(endpoint) {
+async function apiRequest(endpoint, options = {}) {
+
     const response = await fetch(`${API_BASE}${endpoint}`, {
+        method: options.method || "GET",
+
         headers: {
-            "Authorization": `Bearer ${token}`
-        }
+            "Authorization": `Bearer ${token}`,
+            ...(options.body ? {
+                "Content-Type": "application/json"
+            } : {})
+        },
+
+        ...(options.body ? {
+            body: JSON.stringify(options.body)
+        } : {})
     });
 
     const data = await response.json();
@@ -32,11 +41,12 @@ async function apiRequest(endpoint) {
         localStorage.removeItem(TOKEN_KEY);
         localStorage.removeItem("owoCustomer");
         window.location.href = "login.html";
+
         throw new Error("Please log in again.");
     }
 
     if (!response.ok) {
-        throw new Error(data.message || "Unable to load information.");
+        throw new Error(data.message || "Unable to complete your request.");
     }
 
     return data;
@@ -45,6 +55,7 @@ async function apiRequest(endpoint) {
 // DATE FORMATTER
 
 function formatDate(dateValue) {
+
     if (!dateValue) return "Not available";
 
     const date = new Date(dateValue);
@@ -61,6 +72,7 @@ function formatDate(dateValue) {
 // DATE AND TIME FORMATTER
 
 function formatDateTime(dateValue) {
+
     if (!dateValue) return "Not available";
 
     const date = new Date(dateValue);
@@ -79,6 +91,7 @@ function formatDateTime(dateValue) {
 // CURRENCY FORMATTER
 
 function formatPrice(amount) {
+
     return Number(amount || 0).toLocaleString("en-IN", {
         style: "currency",
         currency: "INR",
@@ -89,6 +102,7 @@ function formatPrice(amount) {
 // SAFE HTML TEXT
 
 function escapeHTML(value) {
+
     return String(value ?? "").replace(/[&<>"']/g, character => ({
         "&": "&amp;",
         "<": "&lt;",
@@ -101,6 +115,7 @@ function escapeHTML(value) {
 // LOAD CUSTOMER PROFILE
 
 async function loadCustomerProfile() {
+
     const data = await apiRequest("/auth/me");
 
     const customer = data.customer;
@@ -130,6 +145,7 @@ async function loadCustomerProfile() {
 // STATUS CLASS
 
 function getStatusClass(status) {
+
     return String(status || "")
         .toLowerCase()
         .replace(/\s+/g, "-");
@@ -138,6 +154,7 @@ function getStatusClass(status) {
 // GET PRODUCT DETAILS
 
 function renderOrderProducts(items) {
+
     if (!Array.isArray(items) || items.length === 0) {
         return `
             <p class="order-product-info">
@@ -147,6 +164,7 @@ function renderOrderProducts(items) {
     }
 
     return items.map(item => {
+
         const productName =
             item.product_name ||
             item.name ||
@@ -190,12 +208,14 @@ function renderOrderProducts(items) {
 
             </div>
         `;
+
     }).join("");
 }
 
 // TRACKING HISTORY
 
 function renderTrackingHistory(history) {
+
     if (!Array.isArray(history) || history.length === 0) {
         return `
             <p class="order-product-info">
@@ -208,6 +228,7 @@ function renderTrackingHistory(history) {
         <div class="tracking-history">
 
             ${history.map(event => {
+
                 const eventStatus =
                     event.status ||
                     event.event_status ||
@@ -258,15 +279,300 @@ function renderTrackingHistory(history) {
 
                     </div>
                 `;
+
             }).join("")}
 
         </div>
     `;
 }
 
+// CANCELLATION INFORMATION
+
+function renderCancellationInformation(cancellation) {
+
+    if (!cancellation) {
+        return "";
+    }
+
+    return `
+        <div class="order-action-information">
+
+            <h4>CANCELLATION DETAILS</h4>
+
+            <p>
+                <strong>Reason:</strong>
+                ${escapeHTML(cancellation.reason)}
+            </p>
+
+            ${cancellation.description ? `
+                <p>
+                    <strong>Description:</strong>
+                    ${escapeHTML(cancellation.description)}
+                </p>
+            ` : ""}
+
+            <p>
+                <strong>Cancelled on:</strong>
+                ${formatDateTime(cancellation.created_at)}
+            </p>
+
+        </div>
+    `;
+}
+
+// RETURN REQUEST INFORMATION
+
+function renderReturnInformation(returnRequest) {
+
+    if (!returnRequest) {
+        return "";
+    }
+
+    return `
+        <div class="order-action-information">
+
+            <h4>RETURN REQUEST DETAILS</h4>
+
+            <p>
+                <strong>Reason:</strong>
+                ${escapeHTML(returnRequest.reason)}
+            </p>
+
+            <p>
+                <strong>Description:</strong>
+                ${escapeHTML(returnRequest.description)}
+            </p>
+
+            <p>
+                <strong>Return Status:</strong>
+                ${escapeHTML(returnRequest.status)}
+            </p>
+
+            ${returnRequest.admin_note ? `
+                <p>
+                    <strong>Admin Note:</strong>
+                    ${escapeHTML(returnRequest.admin_note)}
+                </p>
+            ` : ""}
+
+            <p>
+                <strong>Requested on:</strong>
+                ${formatDateTime(returnRequest.created_at)}
+            </p>
+
+        </div>
+    `;
+}
+
+// CUSTOMER ORDER ACTIONS
+
+// CUSTOMER ORDER ACTIONS
+
+function renderOrderActions(order) {
+
+    const status = String(order.order_status || "").trim().toLowerCase();
+
+    // Cancellation is allowed only before shipping.
+
+    const cancellableStatuses = [
+        "pending",
+        "payment pending",
+        "processing",
+        "packed"
+    ];
+
+    const canCancel =
+        cancellableStatuses.includes(status) &&
+        !order.cancellation;
+
+    const returnRequest = order.return_request;
+
+    const canReturn =
+        order.is_return_eligible === true &&
+        !returnRequest;
+
+    let html = `
+        <hr>
+
+        <h4>ORDER ACTIONS</h4>
+    `;
+
+    // CANCELLATION FORM
+
+    if (canCancel) {
+
+        html += `
+            <div class="order-action-section">
+
+                <h4>Cancel Order</h4>
+
+                <p>
+                    You can cancel this order before it is shipped.
+                </p>
+
+                <form
+                    class="cancel-order-form"
+                    data-order-id="${escapeHTML(order.id)}"
+                >
+
+                    <label>
+                        Cancellation Reason
+                    </label>
+
+                    <select name="reason" required>
+                        <option value="">Select a reason</option>
+
+                        <option value="Ordered by mistake">
+                            Ordered by mistake
+                        </option>
+
+                        <option value="Found a better price">
+                            Found a better price
+                        </option>
+
+                        <option value="Delivery taking too long">
+                            Delivery taking too long
+                        </option>
+
+                        <option value="Want to change the order">
+                            Want to change the order
+                        </option>
+
+                        <option value="Other">
+                            Other
+                        </option>
+                    </select>
+
+                    <label>
+                        Additional Details (Optional)
+                    </label>
+
+                    <textarea
+                        name="description"
+                        maxlength="1000"
+                        rows="3"
+                        placeholder="Tell us why you want to cancel this order..."
+                    ></textarea>
+
+                    <button
+                        type="submit"
+                        class="cancel-order-btn"
+                    >
+                        CANCEL ORDER
+                    </button>
+
+                </form>
+
+            </div>
+        `;
+
+    } else if (order.cancellation) {
+
+        html += renderCancellationInformation(order.cancellation);
+
+    }
+
+    // RETURN FORM
+
+    if (canReturn) {
+
+        html += `
+            <div class="order-action-section">
+
+                <h4>Return Order</h4>
+
+                <p>
+                    Return available until:
+                    <strong>
+                        ${formatDate(order.return_eligible_until)}
+                    </strong>
+                </p>
+
+                <form
+                    class="return-order-form"
+                    data-order-id="${escapeHTML(order.id)}"
+                >
+
+                    <label>
+                        Return Reason
+                    </label>
+
+                    <select name="reason" required>
+                        <option value="">Select a reason</option>
+
+                        <option value="Damaged item">
+                            Damaged item
+                        </option>
+
+                        <option value="Defective item">
+                            Defective item
+                        </option>
+
+                        <option value="Wrong item received">
+                            Wrong item received
+                        </option>
+
+                        <option value="Size or fit issue">
+                            Size or fit issue
+                        </option>
+
+                        <option value="Quality not as expected">
+                            Quality not as expected
+                        </option>
+
+                        <option value="Missing parts or accessories">
+                            Missing parts or accessories
+                        </option>
+
+                        <option value="Other">
+                            Other
+                        </option>
+                    </select>
+
+                    <label>
+                        Return Description
+                    </label>
+
+                    <textarea
+                        name="description"
+                        maxlength="2000"
+                        rows="4"
+                        required
+                        placeholder="Please describe the issue with your product..."
+                    ></textarea>
+
+                    <button
+                        type="submit"
+                        class="return-order-btn"
+                    >
+                        SUBMIT RETURN REQUEST
+                    </button>
+
+                </form>
+
+            </div>
+        `;
+
+    } else if (returnRequest) {
+
+        html += renderReturnInformation(returnRequest);
+
+    } else if (status === "delivered" && order.delivered_at) {
+
+        html += `
+            <p class="order-product-info">
+                The 5-day return period has expired.
+            </p>
+        `;
+
+    }
+
+    return html;
+}
 // LOAD ORDER HISTORY
 
 async function loadOrders() {
+
     const data = await apiRequest("/orders/my-orders");
 
     const orders = data.orders || [];
@@ -274,10 +580,12 @@ async function loadOrders() {
     // ORDER COUNTS
 
     const cancelledCount = orders.filter(order => {
+
         const status = String(order.order_status || "").toLowerCase();
 
         return status === "cancelled" ||
             status === "delivery failed";
+
     }).length;
 
     document.getElementById("totalOrders").textContent =
@@ -298,8 +606,10 @@ async function loadOrders() {
     // EMPTY ORDER HISTORY
 
     if (orders.length === 0) {
+
         ordersContainer.innerHTML = `
             <div class="empty-orders">
+
                 <i class="fa-solid fa-bag-shopping"></i>
 
                 <h3>No orders yet</h3>
@@ -311,6 +621,7 @@ async function loadOrders() {
                 <a href="shop.html" class="shop-link">
                     EXPLORE COLLECTIONS
                 </a>
+
             </div>
         `;
 
@@ -320,6 +631,7 @@ async function loadOrders() {
     // DISPLAY ORDERS
 
     ordersContainer.innerHTML = orders.map(order => {
+
         const status = order.order_status || "Pending";
         const statusClass = getStatusClass(status);
 
@@ -329,6 +641,7 @@ async function loadOrders() {
                 <div class="order-top">
 
                     <div>
+
                         <p class="order-number">
                             Order #${escapeHTML(order.order_number)}
                         </p>
@@ -336,6 +649,7 @@ async function loadOrders() {
                         <p class="order-date">
                             Placed on ${formatDate(order.created_at)}
                         </p>
+
                     </div>
 
                     <span class="order-status status-${escapeHTML(statusClass)}">
@@ -353,11 +667,13 @@ async function loadOrders() {
                 <div class="order-bottom">
 
                     <div class="order-total">
+
                         <span>ORDER TOTAL</span>
 
                         <strong>
                             ${formatPrice(order.total_amount)}
                         </strong>
+
                     </div>
 
                     <button
@@ -371,7 +687,10 @@ async function loadOrders() {
 
                 </div>
 
-                <div class="order-details" id="details-${escapeHTML(order.id)}">
+                <div
+                    class="order-details"
+                    id="details-${escapeHTML(order.id)}"
+                >
 
                     <h4>ORDER INFORMATION</h4>
 
@@ -416,16 +735,21 @@ async function loadOrders() {
 
                     ${renderTrackingHistory(order.tracking_history)}
 
+                    ${renderOrderActions(order)}
+
                 </div>
 
             </article>
         `;
+
     }).join("");
 
     // VIEW DETAILS BUTTONS
 
     document.querySelectorAll(".view-order-btn").forEach(button => {
+
         button.addEventListener("click", () => {
+
             const orderId = button.dataset.orderId;
 
             const details = document.getElementById(
@@ -437,27 +761,172 @@ async function loadOrders() {
             button.innerHTML = details.classList.contains("active")
                 ? 'HIDE DETAILS <i class="fa-solid fa-arrow-up"></i>'
                 : 'VIEW DETAILS <i class="fa-solid fa-arrow-right"></i>';
+
         });
+
     });
+
+    // CANCEL ORDER FORMS
+
+    document.querySelectorAll(".cancel-order-form").forEach(form => {
+
+        form.addEventListener("submit", async event => {
+
+            event.preventDefault();
+
+            const orderId = form.dataset.orderId;
+
+            const formData = new FormData(form);
+
+            const reason = formData.get("reason");
+            const description = formData.get("description");
+
+            if (!reason) {
+                accountMessage.textContent =
+                    "Please select a cancellation reason.";
+
+                return;
+            }
+
+            const confirmed = window.confirm(
+                "Are you sure you want to cancel this order?"
+            );
+
+            if (!confirmed) return;
+
+            const submitButton = form.querySelector("button");
+
+            submitButton.disabled = true;
+            submitButton.textContent = "CANCELLING...";
+
+            try {
+
+                const result = await apiRequest(
+                    `/orders/${orderId}/cancel`,
+                    {
+                        method: "POST",
+                        body: {
+                            reason,
+                            description
+                        }
+                    }
+                );
+
+                accountMessage.textContent =
+                    result.message || "Order cancelled successfully.";
+
+                await loadOrders();
+
+            } catch (error) {
+
+                accountMessage.textContent = error.message;
+
+                submitButton.disabled = false;
+                submitButton.textContent = "CANCEL ORDER";
+
+            }
+
+        });
+
+    });
+
+    // RETURN ORDER FORMS
+
+    document.querySelectorAll(".return-order-form").forEach(form => {
+
+        form.addEventListener("submit", async event => {
+
+            event.preventDefault();
+
+            const orderId = form.dataset.orderId;
+
+            const formData = new FormData(form);
+
+            const reason = formData.get("reason");
+            const description = formData.get("description");
+
+            if (!reason) {
+
+                accountMessage.textContent =
+                    "Please select a return reason.";
+
+                return;
+            }
+
+            if (!description || !description.trim()) {
+
+                accountMessage.textContent =
+                    "Please describe why you want to return this product.";
+
+                return;
+            }
+
+            const confirmed = window.confirm(
+                "Are you sure you want to submit this return request?"
+            );
+
+            if (!confirmed) return;
+
+            const submitButton = form.querySelector("button");
+
+            submitButton.disabled = true;
+            submitButton.textContent = "SUBMITTING...";
+
+            try {
+
+                const result = await apiRequest(
+                    `/orders/${orderId}/return`,
+                    {
+                        method: "POST",
+                        body: {
+                            reason,
+                            description
+                        }
+                    }
+                );
+
+                accountMessage.textContent =
+                    result.message || "Return request submitted successfully.";
+
+                await loadOrders();
+
+            } catch (error) {
+
+                accountMessage.textContent = error.message;
+
+                submitButton.disabled = false;
+                submitButton.textContent = "SUBMIT RETURN REQUEST";
+
+            }
+
+        });
+
+    });
+
 }
 
 // LOGOUT
 
 document.getElementById("logoutButton").addEventListener("click", () => {
+
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem("owoCustomer");
 
     window.location.href = "index.html";
+
 });
 
 // INITIALIZE DASHBOARD
 
 async function initializeAccount() {
+
     try {
+
         await loadCustomerProfile();
         await loadOrders();
 
     } catch (error) {
+
         accountMessage.textContent = error.message;
 
         ordersContainer.innerHTML = `
@@ -465,7 +934,9 @@ async function initializeAccount() {
                 Unable to load your account information.
             </div>
         `;
+
     }
+
 }
 
 if (token) {
