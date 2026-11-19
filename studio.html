@@ -1,0 +1,213 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OWO | Custom Studio</title>
+
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="studio.css">
+</head>
+<body>
+
+<header class="studio-header">
+    <a href="index.html" class="studio-brand">OWO<span>.</span></a>
+    <div class="header-label">THE CUSTOM STUDIO</div>
+    <a href="cart.html" class="cart-link">VIEW CART →</a>
+</header>
+
+<main class="studio-page">
+
+    <section class="studio-intro">
+        <p class="eyebrow">YOUR STYLE. YOUR RULES.</p>
+        <h1>Create Your <span>Own.</span></h1>
+        <p>Choose a garment, select a colour and make it yours.</p>
+    </section>
+
+    <div class="studio-layout">
+
+        <!-- LEFT: CUSTOMIZATION CONTROLS -->
+        <aside class="studio-controls">
+
+            <section class="control-section">
+                <p class="section-number">01 / SELECT GARMENT</p>
+                <h2>Choose your piece</h2>
+
+                <div class="garment-options">
+                    <button class="garment-option active" data-garment="tshirt">
+                        T-Shirt
+                    </button>
+                    <button class="garment-option" data-garment="shirt">
+                        Shirt
+                    </button>
+                    <button class="garment-option" data-garment="hoodie">
+                        Hoodie
+                    </button>
+                    <button class="garment-option" data-garment="henley">
+                        Henley
+                    </button>
+                    <button class="garment-option" data-garment="pants">
+                        Pants
+                    </button>
+                </div>
+            </section>
+
+            <section class="control-section" id="fitSection" hidden>
+                <p class="section-number">02 / PANTS FIT</p>
+                <h2>Choose your fit</h2>
+
+                <div class="fit-options">
+                    <button class="fit-option active" data-fit="straight">
+                        Straight Fit
+                    </button>
+                    <button class="fit-option" data-fit="bootcut">
+                        Bootcut Fit
+                    </button>
+                </div>
+            </section>
+
+            <section class="control-section">
+                <p class="section-number">03 / COLOUR</p>
+                <h2>Select your colour</h2>
+
+                <div class="colour-options">
+                    <button class="colour-option active" data-colour="#F5F3EE"
+                        style="--swatch:#F5F3EE" aria-label="White"></button>
+                    <button class="colour-option" data-colour="#171717"
+                        style="--swatch:#171717" aria-label="Black"></button>
+                    <button class="colour-option" data-colour="#172B4D"
+                        style="--swatch:#172B4D" aria-label="Navy"></button>
+                    <button class="colour-option" data-colour="#641F32"
+                        style="--swatch:#641F32" aria-label="Maroon"></button>
+                    <button class="colour-option" data-colour="#244936"
+                        style="--swatch:#244936" aria-label="Forest Green"></button>
+                    <button class="colour-option" data-colour="#76533F"
+                        style="--swatch:#76533F" aria-label="Mocha"></button>
+                    <button class="colour-option" data-colour="#C8B99F"
+                        style="--swatch:#C8B99F" aria-label="Beige"></button>
+                    <button class="colour-option" data-colour="#454545"
+                        style="--swatch:#454545" aria-label="Charcoal"></button>
+                    <button class="colour-option" data-colour="#66839B"
+                        style="--swatch:#66839B" aria-label="Slate Blue"></button>
+                </div>
+
+                <p class="selected-colour" id="selectedColour">White</p>
+            </section>
+
+            <section class="control-section">
+                <p class="section-number">04 / YOUR DESIGN</p>
+                <h2>Upload your logo</h2>
+
+                <label class="upload-area" for="logoUpload">
+                    <span class="upload-symbol">＋</span>
+                    <strong>Upload image</strong>
+                    <small>PNG, JPG or WEBP · Maximum 5 MB</small>
+                </label>
+                <input type="file" id="logoUpload"
+                    accept="image/png,image/jpeg,image/webp" hidden>
+
+                <div class="logo-tools" id="logoTools" hidden>
+                    <label for="logoSize">Logo size</label>
+                    <input type="range" id="logoSize"
+                        min="8" max="38" value="20">
+
+                    <div class="logo-actions">
+                        <button type="button" id="centerLogo">Center logo</button>
+                        <button type="button" id="removeLogo">Remove logo</button>
+                    </div>
+                </div>
+
+                <p class="helper-text">
+                    Drag your uploaded logo on the garment to position it.
+                </p>
+            </section>
+
+            <section class="control-section">
+                <p class="section-number">05 / SIZE</p>
+                <h2>Select your size</h2>
+
+                <div class="size-options">
+                    <button class="size-option" data-size="S">S</button>
+                    <button class="size-option active" data-size="M">M</button>
+                    <button class="size-option" data-size="L">L</button>
+                    <button class="size-option" data-size="XL">XL</button>
+                    <button class="size-option" data-size="XXL">XXL</button>
+                </div>
+            </section>
+
+        </aside>
+
+        <!-- CENTER: LIVE PREVIEW -->
+        <section class="preview-section">
+
+            <div class="preview-heading">
+                <div>
+                    <p class="section-number">LIVE PREVIEW</p>
+                    <h2 id="previewTitle">Classic T-Shirt</h2>
+                </div>
+                <span class="front-label">FRONT VIEW</span>
+            </div>
+
+            <div class="preview-stage">
+                <canvas id="garmentCanvas" width="800" height="900"></canvas>
+
+                <div class="preview-loading" id="previewMessage">
+                    Loading garment image...
+                </div>
+            </div>
+
+            <p class="preview-hint">
+                Your design appears on the front of the garment.
+            </p>
+
+        </section>
+
+        <!-- RIGHT: SUMMARY -->
+        <aside class="summary-panel">
+            <p class="section-number">YOUR CREATION</p>
+            <h2>Design Summary</h2>
+
+            <div class="summary-line">
+                <span>Garment</span>
+                <strong id="summaryGarment">T-Shirt</strong>
+            </div>
+
+            <div class="summary-line">
+                <span>Colour</span>
+                <strong id="summaryColour">White</strong>
+            </div>
+
+            <div class="summary-line" id="summaryFitRow" hidden>
+                <span>Fit</span>
+                <strong id="summaryFit">Straight</strong>
+            </div>
+
+            <div class="summary-line">
+                <span>Size</span>
+                <strong id="summarySize">M</strong>
+            </div>
+
+            <div class="summary-line">
+                <span>Logo</span>
+                <strong id="summaryLogo">Not added</strong>
+            </div>
+
+            <div class="summary-note">
+                Custom garment pricing will be confirmed before your order is processed.
+            </div>
+
+            <button class="add-cart-button" id="addToCart">
+                ADD TO CART
+                <span>→</span>
+            </button>
+
+            <p class="cart-message" id="cartMessage"></p>
+        </aside>
+
+    </div>
+</main>
+
+<script src="studio.js"></script>
+</body>
+</html>

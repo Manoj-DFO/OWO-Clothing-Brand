@@ -1,0 +1,460 @@
+
+/* =====================================
+   OWO CUSTOM STUDIO
+===================================== */
+
+.studio-header {
+    min-height: 76px;
+    padding: 0 6%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid #e9e6e0;
+    background: #fff;
+}
+
+.studio-brand {
+    color: #171717;
+    font-size: 29px;
+    font-weight: 800;
+    letter-spacing: -2px;
+    text-decoration: none;
+}
+
+.studio-brand span {
+    color: #b18a55;
+}
+
+.header-label {
+    font-size: 11px;
+    letter-spacing: 3px;
+    color: #777;
+}
+
+.cart-link {
+    color: #171717;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-decoration: none;
+}
+
+.studio-page {
+    width: 92%;
+    max-width: 1500px;
+    margin: 55px auto 90px;
+}
+
+.studio-intro {
+    text-align: center;
+    margin-bottom: 55px;
+}
+
+.eyebrow,
+.section-number {
+    color: #a17c4d;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 2px;
+}
+
+.studio-intro h1 {
+    margin: 12px 0;
+    color: #171717;
+    font-family: Georgia, serif;
+    font-size: clamp(38px, 5vw, 62px);
+    font-weight: 400;
+}
+
+.studio-intro h1 span {
+    color: #a17c4d;
+    font-style: italic;
+}
+
+.studio-intro > p:last-child {
+    color: #777;
+    font-size: 14px;
+}
+
+.studio-layout {
+    display: grid;
+    grid-template-columns: 290px minmax(350px, 1fr) 250px;
+    align-items: start;
+    gap: 35px;
+}
+
+.studio-controls,
+.summary-panel {
+    padding: 25px;
+    background: #fff;
+    border: 1px solid #eae7e1;
+}
+
+.control-section {
+    padding-bottom: 27px;
+    margin-bottom: 25px;
+    border-bottom: 1px solid #eeeae4;
+}
+
+.control-section:last-child {
+    margin-bottom: 0;
+    border-bottom: 0;
+}
+
+.control-section h2,
+.summary-panel h2 {
+    margin: 8px 0 17px;
+    color: #222;
+    font-family: Georgia, serif;
+    font-size: 20px;
+    font-weight: 400;
+}
+
+.garment-options,
+.fit-options {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+}
+
+.garment-option,
+.fit-option {
+    min-height: 42px;
+    padding: 8px;
+    border: 1px solid #e5e1da;
+    background: #fff;
+    color: #555;
+    cursor: pointer;
+    font-size: 12px;
+    transition: .2s;
+}
+
+.garment-option:hover,
+.fit-option:hover,
+.garment-option.active,
+.fit-option.active {
+    border-color: #171717;
+    background: #171717;
+    color: #fff;
+}
+
+.colour-options {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 11px;
+}
+
+.colour-option {
+    width: 30px;
+    height: 30px;
+    border: 1px solid #d5d1ca;
+    border-radius: 50%;
+    background: var(--swatch);
+    cursor: pointer;
+    outline: 2px solid transparent;
+    outline-offset: 3px;
+}
+
+.colour-option.active {
+    outline-color: #a17c4d;
+}
+
+.selected-colour {
+    margin-top: 14px;
+    color: #777;
+    font-size: 12px;
+}
+
+.upload-area {
+    min-height: 125px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 15px;
+    border: 1px dashed #bdb7ad;
+    background: #faf9f6;
+    cursor: pointer;
+    text-align: center;
+}
+
+.upload-area:hover {
+    border-color: #a17c4d;
+    background: #f7f4ee;
+}
+
+.upload-symbol {
+    color: #a17c4d;
+    font-size: 27px;
+}
+
+.upload-area strong {
+    color: #333;
+    font-size: 13px;
+}
+
+.upload-area small {
+    color: #888;
+    font-size: 10px;
+}
+
+.logo-tools {
+    margin-top: 18px;
+}
+
+.logo-tools label {
+    display: block;
+    margin-bottom: 8px;
+    color: #555;
+    font-size: 12px;
+}
+
+.logo-tools input {
+    width: 100%;
+    accent-color: #a17c4d;
+}
+
+.logo-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 12px;
+}
+
+.logo-actions button {
+    flex: 1;
+    padding: 9px 5px;
+    border: 1px solid #ddd8d0;
+    background: white;
+    color: #555;
+    cursor: pointer;
+    font-size: 10px;
+}
+
+.logo-actions button:hover {
+    border-color: #171717;
+    color: #171717;
+}
+
+.helper-text {
+    margin-top: 12px;
+    color: #888;
+    font-size: 11px;
+    line-height: 1.6;
+}
+
+.size-options {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 6px;
+}
+
+.size-option {
+    min-height: 38px;
+    border: 1px solid #e3dfd8;
+    background: #fff;
+    color: #444;
+    cursor: pointer;
+    font-size: 11px;
+}
+
+.size-option.active {
+    border-color: #171717;
+    background: #171717;
+    color: #fff;
+}
+
+/* PREVIEW */
+
+.preview-section {
+    min-width: 0;
+}
+
+.preview-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 15px;
+}
+
+.preview-heading h2 {
+    margin: 6px 0 0;
+    font-family: Georgia, serif;
+    font-size: 25px;
+    font-weight: 400;
+}
+
+.front-label {
+    padding: 8px 12px;
+    border: 1px solid #e5e1da;
+    color: #777;
+    font-size: 9px;
+    letter-spacing: 1px;
+}
+
+.preview-stage {
+    position: relative;
+    min-height: 600px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    background-color: #f5f3ef;
+    background-image:
+        linear-gradient(45deg, #ebe8e2 25%, transparent 25%),
+        linear-gradient(-45deg, #ebe8e2 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, #ebe8e2 75%),
+        linear-gradient(-45deg, transparent 75%, #ebe8e2 75%);
+    background-size: 22px 22px;
+    background-position: 0 0, 0 11px, 11px -11px, -11px 0;
+}
+
+#garmentCanvas {
+    display: block;
+    width: 100%;
+    max-width: 650px;
+    height: auto;
+    max-height: 690px;
+    object-fit: contain;
+    touch-action: none;
+    cursor: default;
+}
+
+.preview-loading {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 80%;
+    transform: translate(-50%, -50%);
+    color: #777;
+    font-size: 13px;
+    text-align: center;
+    pointer-events: none;
+}
+
+.preview-hint {
+    margin-top: 13px;
+    color: #888;
+    font-size: 11px;
+    text-align: center;
+}
+
+/* SUMMARY */
+
+.summary-panel {
+    position: sticky;
+    top: 20px;
+}
+
+.summary-line {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 15px 0;
+    border-bottom: 1px solid #eeeae4;
+    font-size: 12px;
+}
+
+.summary-line span {
+    color: #888;
+}
+
+.summary-line strong {
+    color: #292929;
+    text-align: right;
+}
+
+.summary-note {
+    margin: 20px 0;
+    padding: 13px;
+    background: #f7f5f1;
+    color: #777;
+    font-size: 11px;
+    line-height: 1.6;
+}
+
+.add-cart-button {
+    width: 100%;
+    min-height: 50px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 17px;
+    border: 0;
+    background: #171717;
+    color: white;
+    cursor: pointer;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1px;
+}
+
+.add-cart-button:hover {
+    background: #a17c4d;
+}
+
+.add-cart-button span {
+    font-size: 18px;
+}
+
+.cart-message {
+    min-height: 18px;
+    margin-top: 12px;
+    color: #397b55;
+    font-size: 11px;
+    line-height: 1.5;
+}
+
+/* RESPONSIVE */
+
+@media (max-width: 1100px) {
+    .studio-layout {
+        grid-template-columns: 260px minmax(300px, 1fr);
+    }
+
+    .summary-panel {
+        position: static;
+        grid-column: 1 / -1;
+    }
+}
+
+@media (max-width: 700px) {
+    .studio-header {
+        min-height: 65px;
+        padding: 0 5%;
+    }
+
+    .header-label {
+        display: none;
+    }
+
+    .studio-page {
+        width: 94%;
+        margin-top: 35px;
+    }
+
+    .studio-intro {
+        margin-bottom: 30px;
+    }
+
+    .studio-layout {
+        grid-template-columns: 1fr;
+        gap: 20px;
+    }
+
+    .preview-section {
+        grid-row: 1;
+    }
+
+    .preview-stage {
+        min-height: 380px;
+    }
+
+    .studio-controls {
+        grid-row: 2;
+    }
+
+    .summary-panel {
+        grid-row: 3;
+    }
+}

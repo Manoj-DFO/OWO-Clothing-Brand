@@ -2,11 +2,26 @@
 const express = require("express");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
+const { rateLimit } = require("express-rate-limit");
 require("dotenv").config();
 
 const router = express.Router();
 
 const TOKEN_EXPIRY = "8h";
+
+// ===================================
+// ADMIN LOGIN RATE LIMITER
+// ===================================
+
+const adminLoginLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    limit: 5,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: {
+        message: "Too many admin login attempts. Please try again after 15 minutes."
+    }
+});
 
 // ===================================
 // JWT CONFIGURATION
@@ -28,7 +43,7 @@ function getJwtSecret() {
 // ADMIN LOGIN
 // ===================================
 
-router.post("/login", async (req, res) => {
+router.post("/login", adminLoginLimiter, async (req, res) => {
     try {
         const { username, password } = req.body;
 

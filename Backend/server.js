@@ -1,12 +1,13 @@
+
 const express = require("express");
 const cors = require("cors");
 const crypto = require("crypto");
+const helmet = require("helmet");
 const pool = require("./db");
 
 require("dotenv").config();
 
 const { router: authRoutes, requireAdmin } = require("./auth");
-
 const {
     router: customerAuthRoutes,
     requireCustomer
@@ -20,11 +21,25 @@ const PORT = process.env.PORT || 3000;
 // MIDDLEWARE
 // ===================================
 
+app.use(helmet());
+
+const allowedOrigins = [
+    "http://127.0.0.1:5500",
+    "http://localhost:5500",
+    ...(process.env.FRONTEND_URL
+        ? process.env.FRONTEND_URL.split(",").map(origin => origin.trim())
+        : [])
+];
+
 app.use(cors({
-    origin: [
-        "http://127.0.0.1:5500",
-        "http://localhost:5500"
-    ],
+    origin: (origin, callback) => {
+        // Allow requests without an Origin header, such as server-to-server requests.
+        if (!origin || allowedOrigins.includes(origin)) {
+            return callback(null, true);
+        }
+
+        return callback(new Error("Origin not allowed by CORS."));
+    },
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
     allowedHeaders: ["Content-Type", "Authorization"]
 }));
@@ -38,7 +53,6 @@ app.use(express.json({ limit: "1mb" }));
 
 app.use("/api/admin", authRoutes);
 app.use("/api/admin", requireAdmin);
-
 app.use("/api/auth", customerAuthRoutes);
 
 
@@ -65,6 +79,13 @@ const ALLOWED_ORDER_STATUSES = [
     "Delivered",
     "Cancelled",
     "Delivery Failed"
+];
+
+const CANCELLABLE_STATUSES = [
+    "Pending",
+    "Payment Pending",
+    "Processing",
+    "Packed"
 ];
 
 const CANCELLATION_REASONS = [
@@ -94,11 +115,22 @@ const RETURN_STATUSES = [
 
 
 // ===================================
+// SAFE ORDER VALIDATION ERRORS
+// ===================================
+
+class OrderRequestError extends Error {
+    constructor(message) {
+        super(message);
+        this.name = "OrderRequestError";
+    }
+}
+
+
+// ===================================
 // PRODUCT VALIDATION
 // ===================================
 
 function validateProduct(data) {
-
     const {
         name,
         description,
@@ -205,7 +237,6 @@ function validateProduct(data) {
 // ===================================
 
 async function initializeCustomerDatabase() {
-
     await pool.query(`
         CREATE TABLE IF NOT EXISTS users (
             id BIGSERIAL PRIMARY KEY,
@@ -230,7 +261,6 @@ async function initializeCustomerDatabase() {
     `);
 
     console.log("OWO customer database initialized.");
-
 }
 
 
@@ -239,7 +269,6 @@ async function initializeCustomerDatabase() {
 // ===================================
 
 async function initializeDeliveryDatabase() {
-
     await pool.query(`
         ALTER TABLE orders
         ADD COLUMN IF NOT EXISTS courier_name VARCHAR(150),
@@ -269,8 +298,6 @@ async function initializeDeliveryDatabase() {
         ON order_tracking_events(order_id)
     `);
 
-    // CUSTOMER CANCELLATION REQUESTS
-
     await pool.query(`
         CREATE TABLE IF NOT EXISTS order_cancellation_requests (
             id BIGSERIAL PRIMARY KEY,
@@ -283,8 +310,6 @@ async function initializeDeliveryDatabase() {
             created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
         )
     `);
-
-    // CUSTOMER RETURN REQUESTS
 
     await pool.query(`
         CREATE TABLE IF NOT EXISTS order_return_requests (
@@ -318,7 +343,6 @@ async function initializeDeliveryDatabase() {
     `);
 
     console.log("OWO delivery tracking database initialized.");
-
 }
 
 
@@ -333,7 +357,6 @@ async function addTrackingEvent(
     description,
     location = null
 ) {
-
     await client.query(
         `INSERT INTO order_tracking_events (
             order_id,
@@ -344,7 +367,6 @@ async function addTrackingEvent(
         VALUES ($1, $2, $3, $4)`,
         [orderId, status, description, location]
     );
-
 }
 
 
@@ -359,40 +381,25 @@ app.get("/", (req, res) => {
 
 // ===================================
 // DATABASE HEALTH CHECK
+// DOES NOT EXPOSE DATABASE DETAILS
 // ===================================
 
 app.get("/api/health", async (req, res) => {
-
     try {
-
-        const dbInfo = await pool.query(
-            "SELECT current_database()"
-        );
-
-        const orderCount = await pool.query(
-            "SELECT COUNT(*) FROM orders"
-        );
-
-        const result = await pool.query("SELECT NOW()");
+        await pool.query("SELECT 1");
 
         res.json({
-            message: "OWO Backend is running!",
-            database: "PostgreSQL connected successfully!",
-            time: result.rows[0].now,
-            databaseName: dbInfo.rows[0].current_database,
-            totalOrders: Number(orderCount.rows[0].count)
+            status: "OK",
+            message: "OWO Backend is running."
         });
-
     } catch (error) {
-
         console.error("Health check error:", error.message);
 
-        res.status(500).json({
-            message: "Database connection failed"
+        res.status(503).json({
+            status: "ERROR",
+            message: "Service temporarily unavailable."
         });
-
     }
-
 });
 
 
@@ -401,9 +408,7 @@ app.get("/api/health", async (req, res) => {
 // ===================================
 
 app.get("/api/products", async (req, res) => {
-
     try {
-
         const result = await pool.query(
             `SELECT *
              FROM products
@@ -412,17 +417,13 @@ app.get("/api/products", async (req, res) => {
         );
 
         res.json(result.rows);
-
     } catch (error) {
-
         console.error("Fetch products error:", error.message);
 
         res.status(500).json({
             message: "Unable to fetch products."
         });
-
     }
-
 });
 
 
@@ -431,9 +432,7 @@ app.get("/api/products", async (req, res) => {
 // ===================================
 
 app.post("/api/admin/products", async (req, res) => {
-
     try {
-
         const validationError = validateProduct(req.body);
 
         if (validationError) {
@@ -480,17 +479,13 @@ app.post("/api/admin/products", async (req, res) => {
             message: "Product added successfully!",
             product: result.rows[0]
         });
-
     } catch (error) {
-
         console.error("Add product error:", error.message);
 
         res.status(500).json({
             message: "Unable to add product."
         });
-
     }
-
 });
 
 
@@ -499,9 +494,7 @@ app.post("/api/admin/products", async (req, res) => {
 // ===================================
 
 app.patch("/api/admin/products/:id", async (req, res) => {
-
     try {
-
         const { id } = req.params;
 
         if (
@@ -565,17 +558,13 @@ app.patch("/api/admin/products/:id", async (req, res) => {
             message: "Product updated successfully!",
             product: result.rows[0]
         });
-
     } catch (error) {
-
         console.error("Update product error:", error.message);
 
         res.status(500).json({
             message: "Unable to update product."
         });
-
     }
-
 });
 
 
@@ -584,9 +573,7 @@ app.patch("/api/admin/products/:id", async (req, res) => {
 // ===================================
 
 app.patch("/api/admin/products/:id/stock", async (req, res) => {
-
     try {
-
         const { id } = req.params;
         const { stock_quantity } = req.body;
 
@@ -631,17 +618,13 @@ app.patch("/api/admin/products/:id/stock", async (req, res) => {
             message: "Product stock updated successfully!",
             product: result.rows[0]
         });
-
     } catch (error) {
-
         console.error("Update product stock error:", error.message);
 
         res.status(500).json({
             message: "Unable to update product stock."
         });
-
     }
-
 });
 
 
@@ -650,9 +633,7 @@ app.patch("/api/admin/products/:id/stock", async (req, res) => {
 // ===================================
 
 app.delete("/api/admin/products/:id", async (req, res) => {
-
     try {
-
         const { id } = req.params;
 
         if (
@@ -682,27 +663,23 @@ app.delete("/api/admin/products/:id", async (req, res) => {
             message: "Product removed from the store successfully!",
             product: result.rows[0]
         });
-
     } catch (error) {
-
         console.error("Archive product error:", error.message);
 
         res.status(500).json({
             message: "Unable to remove product."
         });
-
     }
-
 });
 
 
 // ===================================
 // CREATE CUSTOMER ORDER
+// COD ONLY
 // LOGIN REQUIRED
 // ===================================
 
 app.post("/api/orders", requireCustomer, async (req, res) => {
-
     const {
         customer,
         products,
@@ -739,9 +716,11 @@ app.post("/api/orders", requireCustomer, async (req, res) => {
         });
     }
 
-    if (!["cod", "online"].includes(payment)) {
+    // ONLINE PAYMENT IS DISABLED UNTIL A PAYMENT GATEWAY IS CONFIGURED.
+
+    if (payment !== "cod") {
         return res.status(400).json({
-            message: "Invalid payment method."
+            message: "Online payment is coming soon. Please choose Cash on Delivery."
         });
     }
 
@@ -756,7 +735,6 @@ app.post("/api/orders", requireCustomer, async (req, res) => {
     }
 
     for (const item of products) {
-
         if (
             !item ||
             !/^[1-9]\d*$/.test(String(item.id)) ||
@@ -781,15 +759,12 @@ app.post("/api/orders", requireCustomer, async (req, res) => {
                 message: "Invalid product size."
             });
         }
-
     }
 
     let client;
 
     try {
-
         client = await pool.connect();
-
         await client.query("BEGIN");
 
         const customerResult = await client.query(
@@ -800,7 +775,9 @@ app.post("/api/orders", requireCustomer, async (req, res) => {
         );
 
         if (customerResult.rows.length === 0) {
-            throw new Error("Customer account not found. Please log in again.");
+            throw new OrderRequestError(
+                "Customer account not found. Please log in again."
+            );
         }
 
         const account = customerResult.rows[0];
@@ -836,11 +813,12 @@ app.post("/api/orders", requireCustomer, async (req, res) => {
         const stockRequirements = new Map();
 
         for (const item of products) {
-
             const product = productMap.get(String(item.id));
 
             if (!product || !product.is_active) {
-                throw new Error("A selected product is unavailable.");
+                throw new OrderRequestError(
+                    "A selected product is unavailable."
+                );
             }
 
             const quantity = Number(item.quantity);
@@ -848,16 +826,14 @@ app.post("/api/orders", requireCustomer, async (req, res) => {
             const availableSizes = product.sizes || [];
 
             if (availableSizes.length > 0) {
-
                 if (
                     !item.size ||
                     !availableSizes.includes(item.size)
                 ) {
-                    throw new Error(
+                    throw new OrderRequestError(
                         `Please select a valid size for ${product.name}.`
                     );
                 }
-
             }
 
             const requiredStock =
@@ -875,28 +851,26 @@ app.post("/api/orders", requireCustomer, async (req, res) => {
             });
 
             total += price * quantity;
-
         }
 
         for (const [id, required] of stockRequirements) {
-
             const product = productMap.get(id);
 
             if (Number(product.stock_quantity) < required) {
-                throw new Error(
+                throw new OrderRequestError(
                     `${product.name} does not have enough stock.`
                 );
             }
-
         }
+
+        // Use 128 random bits to make order numbers much harder to guess.
 
         const orderNumber =
             "OWO-" +
             Date.now().toString() +
-            crypto.randomBytes(3).toString("hex").toUpperCase();
+            crypto.randomBytes(16).toString("hex").toUpperCase();
 
-        const orderStatus =
-            payment === "cod" ? "Pending" : "Payment Pending";
+        const orderStatus = "Pending";
 
         const orderResult = await client.query(
             `INSERT INTO orders (
@@ -930,7 +904,7 @@ app.post("/api/orders", requireCustomer, async (req, res) => {
                 customer.city.trim(),
                 customer.state.trim(),
                 customer.pincode.trim(),
-                payment,
+                "cod",
                 total,
                 orderStatus
             ]
@@ -939,7 +913,6 @@ app.post("/api/orders", requireCustomer, async (req, res) => {
         const savedOrder = orderResult.rows[0];
 
         for (const item of orderItems) {
-
             await client.query(
                 `INSERT INTO order_items (
                     order_id,
@@ -959,22 +932,17 @@ app.post("/api/orders", requireCustomer, async (req, res) => {
                     item.price
                 ]
             );
-
         }
 
-        if (payment === "cod") {
+        // Reduce stock for COD orders.
 
-            for (const [id, required] of stockRequirements) {
-
-                await client.query(
-                    `UPDATE products
-                     SET stock_quantity = stock_quantity - $1
-                     WHERE id = $2`,
-                    [required, id]
-                );
-
-            }
-
+        for (const [id, required] of stockRequirements) {
+            await client.query(
+                `UPDATE products
+                 SET stock_quantity = stock_quantity - $1
+                 WHERE id = $2`,
+                [required, id]
+            );
         }
 
         await addTrackingEvent(
@@ -992,13 +960,11 @@ app.post("/api/orders", requireCustomer, async (req, res) => {
                 orderNumber: savedOrder.order_number,
                 total: Number(savedOrder.total_amount),
                 status: savedOrder.order_status,
-                paymentMethod: payment,
+                paymentMethod: "cod",
                 createdAt: savedOrder.created_at
             }
         });
-
     } catch (error) {
-
         if (client) {
             try {
                 await client.query("ROLLBACK");
@@ -1009,33 +975,32 @@ app.post("/api/orders", requireCustomer, async (req, res) => {
 
         console.error("Order creation error:", error.message);
 
-        res.status(400).json({
-            message: error.message || "Unable to create order."
+        if (error instanceof OrderRequestError) {
+            return res.status(400).json({
+                message: error.message
+            });
+        }
+
+        res.status(500).json({
+            message: "Unable to create your order right now. Please try again."
         });
-
     } finally {
-
         if (client) {
             client.release();
         }
-
     }
-
 });
 
 
 // ===================================
 // CUSTOMER CANCEL ORDER
-// LOGIN REQUIRED
-// CANCELLATION ONLY BEFORE SHIPPING
+// ONLY BEFORE SHIPPING
 // ===================================
 
 app.post("/api/orders/:id/cancel", requireCustomer, async (req, res) => {
-
     let client;
 
     try {
-
         const { id } = req.params;
         const { reason, description } = req.body;
 
@@ -1070,7 +1035,6 @@ app.post("/api/orders/:id/cancel", requireCustomer, async (req, res) => {
         }
 
         client = await pool.connect();
-
         await client.query("BEGIN");
 
         const orderResult = await client.query(
@@ -1082,7 +1046,6 @@ app.post("/api/orders/:id/cancel", requireCustomer, async (req, res) => {
         );
 
         if (orderResult.rows.length === 0) {
-
             await client.query("ROLLBACK");
 
             return res.status(404).json({
@@ -1092,17 +1055,7 @@ app.post("/api/orders/:id/cancel", requireCustomer, async (req, res) => {
 
         const order = orderResult.rows[0];
 
-        // Customer can cancel ONLY before the order is shipped.
-
-        const cancellableStatuses = [
-            "Pending",
-            "Payment Pending",
-            "Processing",
-            "Packed"
-        ];
-
-        if (!cancellableStatuses.includes(order.order_status)) {
-
+        if (!CANCELLABLE_STATUSES.includes(order.order_status)) {
             await client.query("ROLLBACK");
 
             return res.status(400).json({
@@ -1118,7 +1071,6 @@ app.post("/api/orders/:id/cancel", requireCustomer, async (req, res) => {
         );
 
         if (existingRequest.rows.length > 0) {
-
             await client.query("ROLLBACK");
 
             return res.status(409).json({
@@ -1142,10 +1094,9 @@ app.post("/api/orders/:id/cancel", requireCustomer, async (req, res) => {
             ]
         );
 
-        // Restore COD stock because the order has not been shipped.
+        // Restore COD stock exactly once.
 
         if (order.payment_method === "cod") {
-
             await client.query(
                 `UPDATE products p
                  SET stock_quantity = p.stock_quantity + item_totals.quantity
@@ -1161,7 +1112,6 @@ app.post("/api/orders/:id/cancel", requireCustomer, async (req, res) => {
                  WHERE p.id = item_totals.product_id`,
                 [id]
             );
-
         }
 
         await client.query(
@@ -1188,16 +1138,13 @@ app.post("/api/orders/:id/cancel", requireCustomer, async (req, res) => {
 
         res.json({
             message: "Your order has been cancelled successfully.",
-
             order: {
                 id: order.id,
                 order_number: order.order_number,
                 order_status: "Cancelled"
             }
         });
-
     } catch (error) {
-
         if (client) {
             try {
                 await client.query("ROLLBACK");
@@ -1217,15 +1164,11 @@ app.post("/api/orders/:id/cancel", requireCustomer, async (req, res) => {
         res.status(500).json({
             message: "Unable to cancel this order right now."
         });
-
     } finally {
-
         if (client) {
             client.release();
         }
-
     }
-
 });
 
 
@@ -1235,11 +1178,9 @@ app.post("/api/orders/:id/cancel", requireCustomer, async (req, res) => {
 // ===================================
 
 app.post("/api/orders/:id/return", requireCustomer, async (req, res) => {
-
     let client;
 
     try {
-
         const { id } = req.params;
         const { reason, description } = req.body;
 
@@ -1272,7 +1213,6 @@ app.post("/api/orders/:id/return", requireCustomer, async (req, res) => {
         }
 
         client = await pool.connect();
-
         await client.query("BEGIN");
 
         const orderResult = await client.query(
@@ -1280,8 +1220,7 @@ app.post("/api/orders/:id/return", requireCustomer, async (req, res) => {
                 id,
                 order_number,
                 order_status,
-                delivered_at,
-                NOW() AS current_time
+                delivered_at
              FROM orders
              WHERE id = $1 AND user_id = $2
              FOR UPDATE`,
@@ -1374,9 +1313,7 @@ app.post("/api/orders/:id/return", requireCustomer, async (req, res) => {
             message: "Your return request has been submitted successfully.",
             return_request: returnResult.rows[0]
         });
-
     } catch (error) {
-
         if (client) {
             try {
                 await client.query("ROLLBACK");
@@ -1396,15 +1333,11 @@ app.post("/api/orders/:id/return", requireCustomer, async (req, res) => {
         res.status(500).json({
             message: "Unable to submit your return request right now."
         });
-
     } finally {
-
         if (client) {
             client.release();
         }
-
     }
-
 });
 
 
@@ -1413,9 +1346,7 @@ app.post("/api/orders/:id/return", requireCustomer, async (req, res) => {
 // ===================================
 
 app.get("/api/orders/my-orders", requireCustomer, async (req, res) => {
-
     try {
-
         const result = await pool.query(
             `SELECT
                 id,
@@ -1517,7 +1448,6 @@ app.get("/api/orders/my-orders", requireCustomer, async (req, res) => {
         const itemsByOrder = new Map();
 
         for (const item of itemsResult.rows) {
-
             const orderId = String(item.order_id);
 
             if (!itemsByOrder.has(orderId)) {
@@ -1530,13 +1460,11 @@ app.get("/api/orders/my-orders", requireCustomer, async (req, res) => {
                 quantity: Number(item.quantity),
                 price: Number(item.unit_price)
             });
-
         }
 
         const eventsByOrder = new Map();
 
         for (const event of eventsResult.rows) {
-
             const orderId = String(event.order_id);
 
             if (!eventsByOrder.has(orderId)) {
@@ -1549,13 +1477,11 @@ app.get("/api/orders/my-orders", requireCustomer, async (req, res) => {
                 location: event.location,
                 event_time: event.event_time
             });
-
         }
 
         const cancellationsByOrder = new Map();
 
         for (const cancellation of cancellationResult.rows) {
-
             cancellationsByOrder.set(
                 String(cancellation.order_id),
                 {
@@ -1564,13 +1490,11 @@ app.get("/api/orders/my-orders", requireCustomer, async (req, res) => {
                     created_at: cancellation.created_at
                 }
             );
-
         }
 
         const returnsByOrder = new Map();
 
         for (const returnRequest of returnResult.rows) {
-
             returnsByOrder.set(
                 String(returnRequest.order_id),
                 {
@@ -1582,7 +1506,6 @@ app.get("/api/orders/my-orders", requireCustomer, async (req, res) => {
                     updated_at: returnRequest.updated_at
                 }
             );
-
         }
 
         const completeOrders = orders.map(order => ({
@@ -1596,15 +1519,23 @@ app.get("/api/orders/my-orders", requireCustomer, async (req, res) => {
         }));
 
         res.json({
-
             totalOrders: completeOrders.length,
 
             processing: completeOrders.filter(order =>
-                ["Pending", "Processing", "Packed", "Payment Pending"].includes(order.order_status)
+                [
+                    "Pending",
+                    "Processing",
+                    "Packed",
+                    "Payment Pending"
+                ].includes(order.order_status)
             ).length,
 
             shipping: completeOrders.filter(order =>
-                ["Shipped", "In Transit", "Out for Delivery"].includes(order.order_status)
+                [
+                    "Shipped",
+                    "In Transit",
+                    "Out for Delivery"
+                ].includes(order.order_status)
             ).length,
 
             delivered: completeOrders.filter(order =>
@@ -1616,19 +1547,14 @@ app.get("/api/orders/my-orders", requireCustomer, async (req, res) => {
             ).length,
 
             orders: completeOrders
-
         });
-
     } catch (error) {
-
         console.error("My orders error:", error.message);
 
         res.status(500).json({
             message: "Unable to fetch your orders."
         });
-
     }
-
 });
 
 
@@ -1637,9 +1563,7 @@ app.get("/api/orders/my-orders", requireCustomer, async (req, res) => {
 // ===================================
 
 app.post("/api/orders/track", async (req, res) => {
-
     try {
-
         const { order_number, contact } = req.body;
 
         if (
@@ -1728,11 +1652,8 @@ app.post("/api/orders/track", async (req, res) => {
         );
 
         res.json({
-
             message: "Order found successfully!",
-
             order: {
-
                 order_number: order.order_number,
                 customer_name: order.customer_name,
                 address: order.address,
@@ -1759,21 +1680,15 @@ app.post("/api/orders/track", async (req, res) => {
                 })),
 
                 tracking_history: eventsResult.rows
-
             }
-
         });
-
     } catch (error) {
-
         console.error("Order tracking error:", error.message);
 
         res.status(500).json({
             message: "Unable to track your order right now."
         });
-
     }
-
 });
 
 
@@ -1782,9 +1697,7 @@ app.post("/api/orders/track", async (req, res) => {
 // ===================================
 
 app.get("/api/admin/orders", async (req, res) => {
-
     try {
-
         const ordersResult = await pool.query(
             `SELECT
                 id,
@@ -1848,7 +1761,6 @@ app.get("/api/admin/orders", async (req, res) => {
         const itemsByOrder = new Map();
 
         for (const item of itemsResult.rows) {
-
             const orderId = String(item.order_id);
 
             if (!itemsByOrder.has(orderId)) {
@@ -1861,13 +1773,11 @@ app.get("/api/admin/orders", async (req, res) => {
                 quantity: Number(item.quantity),
                 price: Number(item.unit_price)
             });
-
         }
 
         const eventsByOrder = new Map();
 
         for (const event of eventsResult.rows) {
-
             const orderId = String(event.order_id);
 
             if (!eventsByOrder.has(orderId)) {
@@ -1880,7 +1790,6 @@ app.get("/api/admin/orders", async (req, res) => {
                 location: event.location,
                 event_time: event.event_time
             });
-
         }
 
         const completeOrders = orders.map(order => ({
@@ -1893,17 +1802,13 @@ app.get("/api/admin/orders", async (req, res) => {
         console.log(`Admin orders fetched: ${completeOrders.length}`);
 
         res.json(completeOrders);
-
     } catch (error) {
-
         console.error("Admin orders error:", error.message);
 
         res.status(500).json({
             message: "Unable to fetch customer orders."
         });
-
     }
-
 });
 
 
@@ -1912,9 +1817,7 @@ app.get("/api/admin/orders", async (req, res) => {
 // ===================================
 
 app.get("/api/admin/returns", async (req, res) => {
-
     try {
-
         const result = await pool.query(
             `SELECT
                 rr.id,
@@ -1943,17 +1846,13 @@ app.get("/api/admin/returns", async (req, res) => {
             ...item,
             total_amount: Number(item.total_amount)
         })));
-
     } catch (error) {
-
         console.error("Admin returns fetch error:", error.message);
 
         res.status(500).json({
             message: "Unable to fetch return requests."
         });
-
     }
-
 });
 
 
@@ -1962,11 +1861,9 @@ app.get("/api/admin/returns", async (req, res) => {
 // ===================================
 
 app.patch("/api/admin/returns/:id", async (req, res) => {
-
     let client;
 
     try {
-
         const { id } = req.params;
         const { status, admin_note } = req.body;
 
@@ -1998,7 +1895,6 @@ app.patch("/api/admin/returns/:id", async (req, res) => {
         }
 
         client = await pool.connect();
-
         await client.query("BEGIN");
 
         const result = await client.query(
@@ -2041,9 +1937,7 @@ app.patch("/api/admin/returns/:id", async (req, res) => {
             message: "Return request updated successfully.",
             return_request: returnRequest
         });
-
     } catch (error) {
-
         if (client) {
             try {
                 await client.query("ROLLBACK");
@@ -2057,15 +1951,11 @@ app.patch("/api/admin/returns/:id", async (req, res) => {
         res.status(500).json({
             message: "Unable to update return request."
         });
-
     } finally {
-
         if (client) {
             client.release();
         }
-
     }
-
 });
 
 
@@ -2074,11 +1964,9 @@ app.patch("/api/admin/returns/:id", async (req, res) => {
 // ===================================
 
 app.patch("/api/admin/orders/:id/delivery", async (req, res) => {
-
     let client;
 
     try {
-
         const { id } = req.params;
 
         if (
@@ -2102,7 +1990,6 @@ app.patch("/api/admin/orders/:id/delivery", async (req, res) => {
         const values = [];
 
         for (const field of allowedFields) {
-
             if (!Object.prototype.hasOwnProperty.call(req.body, field)) {
                 continue;
             }
@@ -2126,7 +2013,6 @@ app.patch("/api/admin/orders/:id/delivery", async (req, res) => {
                 value !== null &&
                 value !== ""
             ) {
-
                 if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
                     return res.status(400).json({
                         message: "Estimated delivery date must use YYYY-MM-DD format."
@@ -2143,12 +2029,10 @@ app.patch("/api/admin/orders/:id/delivery", async (req, res) => {
                         message: "Please enter a valid delivery date."
                     });
                 }
-
             }
 
             values.push(value === "" ? null : value);
             updates.push(`${field} = $${values.length}`);
-
         }
 
         const eventDescription = req.body.event_description;
@@ -2189,13 +2073,11 @@ app.patch("/api/admin/orders/:id/delivery", async (req, res) => {
         }
 
         client = await pool.connect();
-
         await client.query("BEGIN");
 
         let updatedOrder;
 
         if (updates.length > 0) {
-
             values.push(id);
 
             const result = await client.query(
@@ -2214,19 +2096,15 @@ app.patch("/api/admin/orders/:id/delivery", async (req, res) => {
             );
 
             if (result.rows.length === 0) {
-
                 await client.query("ROLLBACK");
 
                 return res.status(404).json({
                     message: "Order not found."
                 });
-
             }
 
             updatedOrder = result.rows[0];
-
         } else {
-
             const result = await client.query(
                 `SELECT id, order_number
                  FROM orders
@@ -2235,21 +2113,17 @@ app.patch("/api/admin/orders/:id/delivery", async (req, res) => {
             );
 
             if (result.rows.length === 0) {
-
                 await client.query("ROLLBACK");
 
                 return res.status(404).json({
                     message: "Order not found."
                 });
-
             }
 
             updatedOrder = result.rows[0];
-
         }
 
         if (eventDescription || eventLocation) {
-
             const currentOrder = await client.query(
                 `SELECT order_status
                  FROM orders
@@ -2264,7 +2138,6 @@ app.patch("/api/admin/orders/:id/delivery", async (req, res) => {
                 eventDescription || "Delivery location updated.",
                 eventLocation || null
             );
-
         }
 
         await client.query("COMMIT");
@@ -2273,9 +2146,7 @@ app.patch("/api/admin/orders/:id/delivery", async (req, res) => {
             message: "Delivery details updated successfully!",
             delivery: updatedOrder
         });
-
     } catch (error) {
-
         if (client) {
             try {
                 await client.query("ROLLBACK");
@@ -2289,28 +2160,23 @@ app.patch("/api/admin/orders/:id/delivery", async (req, res) => {
         res.status(500).json({
             message: "Unable to update delivery details."
         });
-
     } finally {
-
         if (client) {
             client.release();
         }
-
     }
-
 });
 
 
 // ===================================
 // UPDATE CUSTOMER ORDER STATUS (ADMIN)
+// SAFE CANCELLATION + STOCK RESTORATION
 // ===================================
 
 app.patch("/api/admin/orders/:id/status", async (req, res) => {
-
     let client;
 
     try {
-
         const { id } = req.params;
 
         const status =
@@ -2359,8 +2225,77 @@ app.patch("/api/admin/orders/:id/status", async (req, res) => {
         }
 
         client = await pool.connect();
-
         await client.query("BEGIN");
+
+        // Lock the order so two cancellation requests cannot restore stock twice.
+
+        const orderResult = await client.query(
+            `SELECT
+                id,
+                order_number,
+                order_status,
+                payment_method
+             FROM orders
+             WHERE id = $1
+             FOR UPDATE`,
+            [id]
+        );
+
+        if (orderResult.rows.length === 0) {
+            await client.query("ROLLBACK");
+
+            return res.status(404).json({
+                message: "Order not found."
+            });
+        }
+
+        const currentOrder = orderResult.rows[0];
+
+        // Do not allow changing an already cancelled order.
+
+        if (currentOrder.order_status === "Cancelled") {
+            await client.query("ROLLBACK");
+
+            return res.status(400).json({
+                message: "This order has already been cancelled."
+            });
+        }
+
+        // Admin can cancel only before shipping.
+
+        if (
+            status === "Cancelled" &&
+            !CANCELLABLE_STATUSES.includes(currentOrder.order_status)
+        ) {
+            await client.query("ROLLBACK");
+
+            return res.status(400).json({
+                message: "An order can only be cancelled before it is shipped."
+            });
+        }
+
+        // Restore COD stock only when changing an active order to Cancelled.
+
+        if (
+            status === "Cancelled" &&
+            currentOrder.payment_method === "cod"
+        ) {
+            await client.query(
+                `UPDATE products p
+                 SET stock_quantity = p.stock_quantity + item_totals.quantity
+                 FROM (
+                     SELECT
+                        product_id,
+                        SUM(quantity)::INTEGER AS quantity
+                     FROM order_items
+                     WHERE order_id = $1
+                       AND product_id IS NOT NULL
+                     GROUP BY product_id
+                 ) AS item_totals
+                 WHERE p.id = item_totals.product_id`,
+                [id]
+            );
+        }
 
         const result = await client.query(
             `UPDATE orders
@@ -2402,16 +2337,6 @@ app.patch("/api/admin/orders/:id/status", async (req, res) => {
             [status, location, id, status]
         );
 
-        if (result.rows.length === 0) {
-
-            await client.query("ROLLBACK");
-
-            return res.status(404).json({
-                message: "Order not found."
-            });
-
-        }
-
         const eventDescriptions = {
             "Pending": "Your order has been received.",
             "Processing": "Your order is being processed.",
@@ -2420,7 +2345,7 @@ app.patch("/api/admin/orders/:id/status", async (req, res) => {
             "In Transit": "Your order is moving through the courier network.",
             "Out for Delivery": "Your order is out for delivery.",
             "Delivered": "Your order has been successfully delivered.",
-            "Cancelled": "Your order has been cancelled.",
+            "Cancelled": "Your order has been cancelled by the store.",
             "Delivery Failed": "The delivery attempt was unsuccessful."
         };
 
@@ -2435,12 +2360,12 @@ app.patch("/api/admin/orders/:id/status", async (req, res) => {
         await client.query("COMMIT");
 
         res.json({
-            message: "Order status updated successfully!",
+            message: status === "Cancelled"
+                ? "Order cancelled successfully. Stock has been restored."
+                : "Order status updated successfully!",
             order: result.rows[0]
         });
-
     } catch (error) {
-
         if (client) {
             try {
                 await client.query("ROLLBACK");
@@ -2454,15 +2379,11 @@ app.patch("/api/admin/orders/:id/status", async (req, res) => {
         res.status(500).json({
             message: "Unable to update order status."
         });
-
     } finally {
-
         if (client) {
             client.release();
         }
-
     }
-
 });
 
 
@@ -2471,13 +2392,36 @@ app.patch("/api/admin/orders/:id/status", async (req, res) => {
 // ===================================
 
 app.use((error, req, res, next) => {
-
     console.error("Unexpected server error:", error.message);
+
+    if (res.headersSent) {
+        return next(error);
+    }
+
+    // CORS rejection
+    if (error.message === "Origin not allowed by CORS.") {
+        return res.status(403).json({
+            message: "This website is not allowed to access the server."
+        });
+    }
+
+    // Request body too large
+    if (error.type === "entity.too.large") {
+        return res.status(413).json({
+            message: "Request body is too large."
+        });
+    }
+
+    // Invalid JSON
+    if (error instanceof SyntaxError && error.status === 400 && "body" in error) {
+        return res.status(400).json({
+            message: "Invalid JSON request."
+        });
+    }
 
     res.status(500).json({
         message: "An unexpected server error occurred."
     });
-
 });
 
 
@@ -2486,36 +2430,26 @@ app.use((error, req, res, next) => {
 // ===================================
 
 async function startServer() {
-
     try {
-
         await initializeCustomerDatabase();
-
         await initializeDeliveryDatabase();
 
         app.listen(PORT, () => {
-
             console.log(
                 `OWO Backend running at http://localhost:${PORT}`
             );
 
             console.log("OWO Order Tracking API is ready.");
-
             console.log("OWO Customer Account API is ready.");
-
         });
-
     } catch (error) {
-
         console.error(
             "Unable to initialize OWO database:",
             error.message
         );
 
         process.exit(1);
-
     }
-
 }
 
 startServer();

@@ -1,6 +1,7 @@
 
 /* =========================
    OWO - GLOBAL STYLES
+   OFFICIAL COLOUR PALETTE
 ========================= */
 
 :root {
@@ -20,6 +21,7 @@
 
 html {
     scroll-behavior: smooth;
+    scroll-padding-top: 90px;
 }
 
 body {
@@ -58,14 +60,13 @@ img {
     margin-bottom: 20px;
 }
 
-
 /* =========================
    ANNOUNCEMENT BAR
 ========================= */
 
 .announcement {
     background: var(--black);
-    color: white;
+    color: var(--white);
     text-align: center;
     padding: 11px 15px;
 }
@@ -75,7 +76,6 @@ img {
     letter-spacing: 2.5px;
     font-weight: 600;
 }
-
 
 /* =========================
    NAVBAR
@@ -87,11 +87,11 @@ img {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    background: white;
+    background: var(--white);
     position: sticky;
     top: 0;
     z-index: 100;
-    border-bottom: 1px solid #eeeeee;
+    border-bottom: 1px solid var(--light-gray);
 }
 
 .logo {
@@ -142,7 +142,6 @@ img {
     font-size: 22px;
     cursor: pointer;
 }
-
 
 /* =========================
    HERO SECTION
@@ -206,7 +205,7 @@ img {
 
 .btn-dark {
     background: var(--black);
-    color: white;
+    color: var(--white);
     border: 1px solid var(--black);
 }
 
@@ -221,7 +220,7 @@ img {
 
 .btn-outline:hover {
     background: var(--black);
-    color: white;
+    color: var(--white);
 }
 
 .hero-image {
@@ -237,7 +236,7 @@ img {
     position: absolute;
     bottom: 35px;
     right: 35px;
-    background: white;
+    background: var(--white);
     padding: 17px 23px;
 }
 
@@ -262,7 +261,6 @@ img {
     font-size: 9px;
     letter-spacing: 2px;
 }
-
 
 /* =========================
    BRAND STATEMENT
@@ -291,7 +289,6 @@ img {
     font-size: 13px;
     line-height: 2;
 }
-
 
 /* =========================
    SECTION HEADINGS
@@ -328,7 +325,6 @@ img {
     border-color: var(--accent);
 }
 
-
 /* =========================
    COLLECTIONS
 ========================= */
@@ -348,7 +344,7 @@ img {
     position: relative;
     overflow: hidden;
     display: block;
-    background: #ddd;
+    background: var(--light-gray);
 }
 
 .collection-card img {
@@ -363,7 +359,10 @@ img {
     content: "";
     position: absolute;
     inset: 0;
-    background: linear-gradient(transparent 35%, rgba(0,0,0,0.7));
+    background: linear-gradient(
+        transparent 35%,
+        rgba(0, 0, 0, 0.7)
+    );
 }
 
 .collection-overlay {
@@ -371,7 +370,7 @@ img {
     bottom: 35px;
     left: 30px;
     z-index: 2;
-    color: white;
+    color: var(--white);
 }
 
 .collection-overlay p {
@@ -392,7 +391,6 @@ img {
     font-weight: 700;
 }
 
-
 /* =========================
    CUSTOMIZATION SECTION
 ========================= */
@@ -401,7 +399,7 @@ img {
     display: grid;
     grid-template-columns: 1fr 1fr;
     background: var(--black);
-    color: white;
+    color: var(--white);
 }
 
 .customize-image {
@@ -417,7 +415,7 @@ img {
     position: absolute;
     top: 30px;
     left: 30px;
-    background: white;
+    background: var(--white);
     color: var(--black);
     padding: 13px 20px;
     font-size: 10px;
@@ -445,7 +443,7 @@ img {
 }
 
 .customize-content > p:not(.eyebrow) {
-    color: #bcbcbc;
+    color: var(--light-gray);
     font-size: 13px;
     line-height: 2;
     margin: 22px 0;
@@ -459,7 +457,7 @@ img {
 
 .custom-features li {
     font-size: 12px;
-    color: #dddddd;
+    color: var(--light-gray);
     margin-bottom: 16px;
 }
 
@@ -469,17 +467,16 @@ img {
 }
 
 .btn-light {
-    background: white;
+    background: var(--white);
     color: var(--black);
-    border: 1px solid white;
+    border: 1px solid var(--white);
 }
 
 .btn-light:hover {
     background: var(--accent);
-    color: white;
+    color: var(--white);
     border-color: var(--accent);
 }
-
 
 /* =========================
    FEATURED PRODUCTS
@@ -514,7 +511,7 @@ img {
     position: absolute;
     top: 15px;
     left: 15px;
-    background: white;
+    background: var(--white);
     padding: 9px 12px;
     font-size: 8px;
     font-weight: 700;
@@ -528,9 +525,14 @@ img {
     height: 35px;
     width: 35px;
     border: none;
-    background: white;
+    background: var(--white);
     border-radius: 50%;
     cursor: pointer;
+    transition: 0.2s;
+}
+
+.wishlist:hover {
+    transform: scale(1.1);
 }
 
 .quick-add {
@@ -540,7 +542,8 @@ img {
     width: 100%;
     padding: 15px;
     border: none;
-    background: rgba(255,255,255,0.95);
+    background: rgba(255, 255, 255, 0.95);
+    color: var(--black);
     font-size: 10px;
     font-weight: 700;
     letter-spacing: 1px;
@@ -575,7 +578,6 @@ img {
 .product-info strong {
     font-size: 13px;
 }
-
 
 /* =========================
    ACCESSORIES
@@ -633,7 +635,10 @@ img {
     content: "";
     position: absolute;
     inset: 0;
-    background: linear-gradient(transparent 40%, rgba(0,0,0,0.65));
+    background: linear-gradient(
+        transparent 40%,
+        rgba(0, 0, 0, 0.65)
+    );
 }
 
 .accessory-card div {
@@ -641,7 +646,7 @@ img {
     z-index: 2;
     bottom: 30px;
     left: 25px;
-    color: white;
+    color: var(--white);
 }
 
 .accessory-card h3 {
@@ -656,7 +661,6 @@ img {
     letter-spacing: 1px;
 }
 
-
 /* =========================
    BRAND BANNER
 ========================= */
@@ -665,7 +669,7 @@ img {
     padding: 110px 20px;
     text-align: center;
     background: var(--black);
-    color: white;
+    color: var(--white);
 }
 
 .brand-banner > p {
@@ -686,7 +690,6 @@ img {
 .brand-banner h2 span {
     color: var(--accent);
 }
-
 
 /* =========================
    NEWSLETTER
@@ -731,12 +734,18 @@ img {
     background: transparent;
     border: none;
     outline: none;
+    color: var(--black);
     font-size: 12px;
+}
+
+.newsletter-form input::placeholder {
+    color: var(--gray);
 }
 
 .newsletter-form button {
     background: transparent;
     border: none;
+    color: var(--black);
     font-size: 10px;
     font-weight: 700;
     cursor: pointer;
@@ -744,14 +753,13 @@ img {
     padding-left: 10px;
 }
 
-
 /* =========================
    FOOTER
 ========================= */
 
 .footer {
     background: var(--black);
-    color: white;
+    color: var(--white);
     padding: 75px 7% 0;
 }
 
@@ -768,7 +776,7 @@ img {
 
 .footer-brand > p {
     font-size: 12px;
-    color: #aaa;
+    color: var(--gray);
     line-height: 2;
     margin: 18px 0;
 }
@@ -801,7 +809,7 @@ img {
 
 .footer-column a {
     font-size: 11px;
-    color: #aaa;
+    color: var(--gray);
     transition: 0.3s;
 }
 
@@ -810,7 +818,7 @@ img {
 }
 
 .footer-bottom {
-    border-top: 1px solid #333;
+    border-top: 1px solid var(--gray);
     padding: 25px 0;
     display: flex;
     justify-content: space-between;
@@ -820,9 +828,53 @@ img {
 .footer-bottom p {
     font-size: 9px;
     letter-spacing: 1px;
-    color: #999;
+    color: var(--gray);
 }
 
+/* =========================
+   CART COUNTER
+========================= */
+
+.nav-icons a[aria-label="Shopping bag"] {
+    position: relative;
+}
+
+.cart-count {
+    position: absolute;
+    top: -10px;
+    right: -12px;
+    background: var(--accent);
+    color: var(--white);
+    width: 17px;
+    height: 17px;
+    border-radius: 50%;
+    font-size: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* =========================
+   MOBILE MENU
+========================= */
+
+@media (max-width: 768px) {
+
+    .nav-links.active {
+        display: flex;
+        position: absolute;
+        top: 70px;
+        left: 0;
+        width: 100%;
+        background: var(--white);
+        flex-direction: column;
+        align-items: flex-start;
+        padding: 25px 7%;
+        gap: 25px;
+        box-shadow: 0 10px 20px rgba(0, 0, 0, 0.08);
+    }
+
+}
 
 /* =========================
    RESPONSIVE DESIGN
@@ -850,7 +902,6 @@ img {
         padding: 60px 8%;
     }
 }
-
 
 @media (max-width: 768px) {
 
@@ -978,7 +1029,6 @@ img {
     }
 }
 
-
 @media (max-width: 480px) {
 
     .announcement p {
@@ -1075,73 +1125,9 @@ img {
     }
 }
 
-/* MOBILE MENU INTERACTION */
-
-@media (max-width: 768px) {
-
-    .nav-links.active {
-        display: flex;
-        position: absolute;
-        top: 70px;
-        left: 0;
-        width: 100%;
-        background: white;
-        flex-direction: column;
-        align-items: flex-start;
-        padding: 25px 7%;
-        gap: 25px;
-        box-shadow: 0 10px 20px rgba(0,0,0,0.08);
-    }
-
-}
-
-/* CART COUNTER */
-
-.nav-icons a[aria-label="Shopping bag"] {
-    position: relative;
-}
-
-.cart-count {
-    position: absolute;
-    top: -10px;
-    right: -12px;
-    background: #b69a76;
-    color: white;
-    width: 17px;
-    height: 17px;
-    border-radius: 50%;
-    font-size: 10px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-/* WISHLIST */
-
-.wishlist {
-    transition: 0.2s;
-}
-
-.wishlist:hover {
-    transform: scale(1.1);
-}
-
-/* =================================
-   OWO - SMOOTH SCROLLING
-================================= */
-
-html {
-    scroll-behavior: smooth;
-    scroll-padding-top: 90px;
-}
-
-/* Prevent unwanted horizontal scrolling */
-
-body {
-    overflow-x: hidden;
-}
-
-/* Smooth hover transitions */
+/* =========================
+   GLOBAL HOVER TRANSITIONS
+========================= */
 
 a,
 button,
@@ -1149,15 +1135,4 @@ button,
 .collection-card,
 .accessory-card {
     transition: all 0.3s ease;
-}
-
-/* SMOOTH SCROLLING */
-
-html {
-    scroll-behavior: smooth;
-    scroll-padding-top: 90px;
-}
-
-body {
-    overflow-x: hidden;
 }

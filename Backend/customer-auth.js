@@ -2,11 +2,26 @@
 const express = require("express");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
+const { rateLimit } = require("express-rate-limit");
 const pool = require("./db");
 
 const router = express.Router();
 
 const TOKEN_EXPIRY = "7d";
+
+// ===================================
+// CUSTOMER LOGIN RATE LIMITER
+// ===================================
+
+const customerLoginLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    limit: 5,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: {
+        message: "Too many login attempts. Please try again after 15 minutes."
+    }
+});
 
 // ===================================
 // JWT CONFIGURATION
@@ -112,7 +127,6 @@ router.post("/register", async (req, res) => {
         );
 
         const customer = result.rows[0];
-
         const token = generateCustomerToken(customer.id);
 
         return res.status(201).json({
@@ -145,7 +159,7 @@ router.post("/register", async (req, res) => {
 // CUSTOMER LOGIN
 // ===================================
 
-router.post("/login", async (req, res) => {
+router.post("/login", customerLoginLimiter, async (req, res) => {
     try {
         const { email, password } = req.body;
 

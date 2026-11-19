@@ -1,0 +1,24 @@
+{
+  "name": "clothing-brand",
+  "version": "1.0.0",
+  "description": "",
+  "main": "account.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Manoj-DFO/OWO-Clothing-Brand.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/Manoj-DFO/OWO-Clothing-Brand/issues"
+  },
+  "homepage": "https://github.com/Manoj-DFO/OWO-Clothing-Brand#readme",
+  "dependencies": {
+    "three": "^0.187.0"
+  }
+}
