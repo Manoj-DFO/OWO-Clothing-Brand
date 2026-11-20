@@ -29,6 +29,7 @@ const LOW_STOCK_LIMIT = 5;
 
 let orders = [];
 let products = [];
+let customDesigns = [];
 let editingProductId = null;
 
 
@@ -322,6 +323,10 @@ function showSection(sectionId) {
     if (sectionId === "orders-section") renderOrders();
     if (sectionId === "products-section") renderProducts();
     if (sectionId === "inventory-section") renderInventory();
+
+    if (sectionId === "custom-designs-section") {
+        loadCustomDesigns();
+    }
 }
 
 function setupNavigation() {
@@ -1010,15 +1015,11 @@ async function saveDeliveryDetails(event) {
 
         openOrderDetails(orderId);
 
-        const message = $("delivery-message");
-
-        if (message) {
-            showMessage(
-                "delivery-message",
-                result.message || "Delivery details saved successfully.",
-                "success"
-            );
-        }
+        showMessage(
+            "delivery-message",
+            result.message || "Delivery details saved successfully.",
+            "success"
+        );
 
     } catch (error) {
         showMessage("delivery-message", error.message, "error");
@@ -1802,6 +1803,658 @@ function renderInventory() {
 
 
 // ============================================
+// CUSTOM DESIGN MANAGEMENT
+// ============================================
+
+async function loadCustomDesigns() {
+    const table = $("custom-designs-table");
+
+    if (!table) return;
+
+    table.innerHTML = `
+        <tr>
+            <td colspan="7">Loading custom designs...</td>
+        </tr>
+    `;
+
+    clearMessage("custom-designs-message");
+
+    try {
+        const data = await adminFetch("/admin/custom-designs");
+
+        customDesigns = Array.isArray(data)
+            ? data
+            : Array.isArray(data.designs)
+                ? data.designs
+                : [];
+
+        renderCustomDesigns();
+
+    } catch (error) {
+        table.innerHTML = `
+            <tr>
+                <td colspan="7">${escapeHTML(error.message)}</td>
+            </tr>
+        `;
+
+        showMessage("custom-designs-message", error.message, "error");
+    }
+}
+
+function getDesignData(design) {
+    let data = design.design_data || {};
+
+    if (typeof data === "string") {
+        try {
+            data = JSON.parse(data);
+        } catch (error) {
+            data = {};
+        }
+    }
+
+    return data;
+}
+
+function getCustomization(design) {
+    const data = getDesignData(design);
+    return data.customization || data;
+}
+
+function getDesignCustomer(design) {
+    const name =
+        design.customer_name ||
+        design.user_name ||
+        design.name ||
+        design.username ||
+        "Customer";
+
+    const email =
+        design.customer_email ||
+        design.email ||
+        "";
+
+    return { name, email };
+}
+
+function designStatusBadge(status) {
+    const classes = {
+        "Pending Review": "pending",
+        "Price Confirmed": "delivered",
+        "Rejected": "cancelled",
+        "Ordered": "processing"
+    };
+
+    return `
+        <span class="status-badge ${classes[status] || "pending"}">
+            ${escapeHTML(status || "Pending Review")}
+        </span>
+    `;
+}
+
+function renderCustomDesigns() {
+    const table = $("custom-designs-table");
+
+    if (!table) return;
+
+    const search =
+        $("custom-design-search")?.value.toLowerCase().trim() || "";
+
+    const statusFilter =
+        $("custom-design-status-filter")?.value || "all";
+
+    let filtered = [...customDesigns];
+
+    if (search) {
+        filtered = filtered.filter((design) => {
+            const customization = getCustomization(design);
+            const customer = getDesignCustomer(design);
+
+            return [
+                design.id,
+                customer.name,
+                customer.email,
+                customization.garment,
+                customization.colour
+            ].some((value) => {
+                return String(value || "").toLowerCase().includes(search);
+            });
+        });
+    }
+
+    if (statusFilter !== "all") {
+        filtered = filtered.filter((design) => {
+            return design.status === statusFilter;
+        });
+    }
+
+    filtered.sort((a, b) => {
+        return new Date(b.created_at) - new Date(a.created_at);
+    });
+
+    if (filtered.length === 0) {
+        table.innerHTML = `
+            <tr>
+                <td colspan="7">No matching custom design requests found.</td>
+            </tr>
+        `;
+        return;
+    }
+
+    table.innerHTML = filtered.map((design) => {
+        const customization = getCustomization(design);
+        const data = getDesignData(design);
+        const customer = getDesignCustomer(design);
+
+        const garment = customization.garment || "—";
+        const size = data.size || customization.size || "—";
+
+        return `
+            <tr>
+                <td>#${escapeHTML(design.id)}</td>
+
+                <td>
+                    <strong>${escapeHTML(customer.name)}</strong>
+                    <small class="table-subtext">
+                        ${escapeHTML(customer.email)}
+                    </small>
+                </td>
+
+                <td>${escapeHTML(garment)}</td>
+
+                <td>${escapeHTML(size)}</td>
+
+                <td>${formatDate(design.created_at)}</td>
+
+                <td>${designStatusBadge(design.status)}</td>
+
+                <td>
+                    <button
+                        type="button"
+                        class="action-button"
+                        data-view-design="${escapeHTML(design.id)}"
+                    >
+                        View / Manage
+                    </button>
+                </td>
+            </tr>
+        `;
+    }).join("");
+}
+
+function renderDesignMeasurements(measurements) {
+    if (!measurements || typeof measurements !== "object") {
+        return "<p>No measurements provided.</p>";
+    }
+
+    const labels = {
+        shoulder: "Shoulder",
+        chest: "Chest",
+        upperWaist: "Upper Waist",
+        sleeve: "Sleeve",
+        pantsWaist: "Pants Waist",
+        hip: "Hip",
+        bottomLeg: "Bottom Leg"
+    };
+
+    const entries = Object.entries(measurements);
+
+    if (entries.length === 0) {
+        return "<p>No measurements provided.</p>";
+    }
+
+    return `
+        <div class="order-detail-grid">
+            ${entries.map(([key, measurement]) => {
+                const value = measurement?.value ?? measurement;
+                const unit = measurement?.unit || "";
+
+                return `
+                    <div>
+                        <strong>${escapeHTML(labels[key] || key)}</strong>
+                        <p>${escapeHTML(value)} ${escapeHTML(unit)}</p>
+                    </div>
+                `;
+            }).join("")}
+        </div>
+    `;
+}
+
+
+// ============================================
+// CREATE CUSTOM DESIGN MODAL
+// ============================================
+
+function createCustomDesignModal() {
+    if ($("custom-design-modal")) return;
+
+    const modal = document.createElement("div");
+
+    modal.id = "custom-design-modal";
+    modal.className = "modal";
+
+    modal.innerHTML = `
+        <div class="modal-content" style="max-width:850px;max-height:90vh;overflow-y:auto;">
+
+            <div class="modal-header">
+                <h2>Custom Design Details</h2>
+
+                <button
+                    type="button"
+                    id="close-custom-design-modal"
+                    class="modal-close"
+                    aria-label="Close custom design details"
+                >
+                    ×
+                </button>
+            </div>
+
+            <div id="custom-design-details-content">
+                Loading design...
+            </div>
+
+        </div>
+    `;
+
+    document.body.appendChild(modal);
+
+    $("close-custom-design-modal").addEventListener(
+        "click",
+        closeCustomDesignModal
+    );
+
+    modal.addEventListener("click", (event) => {
+        if (event.target === modal) {
+            closeCustomDesignModal();
+        }
+    });
+}
+
+
+// ============================================
+// OPEN CUSTOM DESIGN DETAILS
+// ============================================
+
+function openCustomDesign(designId) {
+    const design = customDesigns.find((item) => {
+        return String(item.id) === String(designId);
+    });
+
+    if (!design) return;
+
+    createCustomDesignModal();
+
+    const data = getDesignData(design);
+    const customization = getCustomization(design);
+    const customer = getDesignCustomer(design);
+
+    const logo = customization.logo || "";
+    const logoPosition = customization.logoPosition || {};
+
+    const logoHTML = logo
+        ? `
+            <div style="margin:15px 0;">
+                <strong>Uploaded Logo</strong>
+
+                <div style="margin-top:10px;">
+                    <img
+                        src="${escapeHTML(logo)}"
+                        alt="Customer uploaded logo"
+                        style="max-width:200px;max-height:200px;object-fit:contain;border:1px solid #ddd;padding:10px;border-radius:8px;"
+                    >
+                </div>
+            </div>
+        `
+        : "<p>No logo uploaded.</p>";
+
+    const measurementsHTML = renderDesignMeasurements(
+        customization.measurements
+    );
+
+    const content = $("custom-design-details-content");
+
+    content.innerHTML = `
+        <div class="order-detail-grid">
+
+            <div>
+                <strong>Request ID</strong>
+                <p>#${escapeHTML(design.id)}</p>
+            </div>
+
+            <div>
+                <strong>Customer</strong>
+                <p>${escapeHTML(customer.name)}</p>
+            </div>
+
+            <div>
+                <strong>Email</strong>
+                <p>${escapeHTML(customer.email || "—")}</p>
+            </div>
+
+            <div>
+                <strong>Phone</strong>
+                <p>${escapeHTML(design.customer_phone || "—")}</p>
+            </div>
+
+            <div>
+                <strong>Garment</strong>
+                <p>${escapeHTML(customization.garment || "—")}</p>
+            </div>
+
+            <div>
+                <strong>Size</strong>
+                <p>${escapeHTML(data.size || customization.size || "—")}</p>
+            </div>
+
+            <div>
+                <strong>Colour</strong>
+                <p>
+                    ${escapeHTML(customization.colour || "—")}
+                    ${customization.colourCode
+                        ? `<span style="display:inline-block;width:16px;height:16px;border:1px solid #aaa;border-radius:50%;background:${escapeHTML(customization.colourCode)};vertical-align:middle;margin-left:5px;"></span>`
+                        : ""
+                    }
+                </p>
+            </div>
+
+            <div>
+                <strong>Fit</strong>
+                <p>${escapeHTML(customization.fit || "—")}</p>
+            </div>
+
+            <div>
+                <strong>Submitted</strong>
+                <p>${formatDateTime(design.created_at)}</p>
+            </div>
+
+            <div>
+                <strong>Current Status</strong>
+                <p>${designStatusBadge(design.status)}</p>
+            </div>
+
+        </div>
+
+        <hr style="margin:20px 0;border:0;border-top:1px solid #ddd;">
+
+        <h3>Customer Measurements</h3>
+
+        <div style="margin-top:12px;">
+            ${measurementsHTML}
+        </div>
+
+        <hr style="margin:20px 0;border:0;border-top:1px solid #ddd;">
+
+        <h3>Logo Customization</h3>
+
+        ${logoHTML}
+
+        <p>
+            <strong>Logo Width:</strong>
+            ${escapeHTML(customization.logoWidth ?? "—")}
+        </p>
+
+        <p>
+            <strong>Logo Position:</strong>
+            X: ${escapeHTML(logoPosition.x ?? "—")},
+            Y: ${escapeHTML(logoPosition.y ?? "—")}
+        </p>
+
+        <p>
+            <strong>Design Side:</strong>
+            ${escapeHTML(customization.side || "—")}
+        </p>
+
+        <hr style="margin:20px 0;border:0;border-top:1px solid #ddd;">
+
+        <h3>Price and Stock Confirmation</h3>
+
+        <form id="custom-design-quote-form"
+            data-design-id="${escapeHTML(design.id)}">
+
+            <div class="form-grid">
+
+                <div class="form-group">
+                    <label for="design-quoted-price">
+                        Final Price (₹) *
+                    </label>
+
+                    <input
+                        type="number"
+                        id="design-quoted-price"
+                        min="0.01"
+                        max="99999999.99"
+                        step="0.01"
+                        required
+                        value="${design.quoted_price ?? ""}"
+                        placeholder="Enter final price"
+                    >
+                </div>
+
+                <div class="form-group">
+                    <label for="design-stock-quantity">
+                        Available Stock *
+                    </label>
+
+                    <input
+                        type="number"
+                        id="design-stock-quantity"
+                        min="0"
+                        step="1"
+                        required
+                        value="${design.stock_quantity ?? 0}"
+                        placeholder="Enter available stock"
+                    >
+                </div>
+
+                <div class="form-group full-width">
+                    <label for="design-admin-note">
+                        Admin Note / Rejection Reason
+                    </label>
+
+                    <textarea
+                        id="design-admin-note"
+                        rows="3"
+                        maxlength="2000"
+                        placeholder="Add an admin note or rejection reason"
+                    >${escapeHTML(design.admin_note || "")}</textarea>
+                </div>
+
+            </div>
+
+            <div class="form-actions">
+
+                <button
+                    type="submit"
+                    class="primary-button"
+                    id="save-design-quote"
+                    ${design.status === "Ordered" ? "disabled" : ""}
+                >
+                    Confirm Price and Stock
+                </button>
+
+                <button
+                    type="button"
+                    class="secondary-button"
+                    id="reject-design-button"
+                    data-reject-design="${escapeHTML(design.id)}"
+                    ${design.status === "Ordered" ? "disabled" : ""}
+                >
+                    Reject Design
+                </button>
+
+            </div>
+
+            ${design.status === "Ordered" ? `
+                <p class="message">
+                    This design has already been ordered and cannot be changed.
+                </p>
+            ` : ""}
+
+        </form>
+    `;
+
+    $("custom-design-modal").classList.add("show");
+}
+
+function closeCustomDesignModal() {
+    $("custom-design-modal")?.classList.remove("show");
+}
+
+
+// ============================================
+// SAVE CUSTOM DESIGN PRICE AND STOCK
+// ============================================
+
+async function saveCustomDesignQuote(event) {
+    event.preventDefault();
+
+    const form = event.target.closest("#custom-design-quote-form");
+
+    if (!form) return;
+
+    const designId = form.dataset.designId;
+
+    const priceValue = $("design-quoted-price").value.trim();
+    const stockValue = $("design-stock-quantity").value.trim();
+    const adminNote = $("design-admin-note").value.trim();
+
+    const price = Number(priceValue);
+    const stock = Number(stockValue);
+
+    if (
+        priceValue === "" ||
+        !Number.isFinite(price) ||
+        price <= 0 ||
+        price > 99999999.99
+    ) {
+        alert("Enter a valid price greater than zero.");
+        return;
+    }
+
+    if (
+        stockValue === "" ||
+        !Number.isSafeInteger(stock) ||
+        stock < 0
+    ) {
+        alert("Enter a valid stock quantity.");
+        return;
+    }
+
+    const button = $("save-design-quote");
+
+    button.disabled = true;
+    button.textContent = "Saving...";
+
+    try {
+        const result = await adminFetch(
+            `/admin/custom-designs/${encodeURIComponent(designId)}/quote`,
+            {
+                method: "PATCH",
+                body: JSON.stringify({
+                    // IMPORTANT: Backend expects "price".
+                    price: price,
+                    stock_quantity: stock,
+                    admin_note: adminNote
+                })
+            }
+        );
+
+        closeCustomDesignModal();
+
+        await loadCustomDesigns();
+
+        showMessage(
+            "custom-designs-message",
+            result.message || "Custom design price and stock confirmed.",
+            "success"
+        );
+
+    } catch (error) {
+        showMessage(
+            "custom-designs-message",
+            error.message,
+            "error"
+        );
+
+        button.disabled = false;
+        button.textContent = "Confirm Price and Stock";
+    }
+}
+
+
+// ============================================
+// REJECT CUSTOM DESIGN
+// ============================================
+
+async function rejectCustomDesign(designId) {
+    const design = customDesigns.find((item) => {
+        return String(item.id) === String(designId);
+    });
+
+    if (!design) return;
+
+    if (design.status === "Ordered") {
+        alert("An already ordered design cannot be rejected.");
+        return;
+    }
+
+    const adminNote = $("design-admin-note")?.value.trim() || "";
+
+    if (!adminNote) {
+        alert("Please enter a rejection reason in the Admin Note field.");
+        $("design-admin-note")?.focus();
+        return;
+    }
+
+    const confirmed = confirm(
+        `Are you sure you want to reject custom design #${designId}?`
+    );
+
+    if (!confirmed) return;
+
+    const button = $("reject-design-button");
+
+    if (button) {
+        button.disabled = true;
+        button.textContent = "Rejecting...";
+    }
+
+    try {
+        const result = await adminFetch(
+            `/admin/custom-designs/${encodeURIComponent(designId)}/reject`,
+            {
+                method: "PATCH",
+                body: JSON.stringify({
+                    admin_note: adminNote
+                })
+            }
+        );
+
+        closeCustomDesignModal();
+
+        await loadCustomDesigns();
+
+        showMessage(
+            "custom-designs-message",
+            result.message || "Custom design rejected.",
+            "success"
+        );
+
+    } catch (error) {
+        showMessage(
+            "custom-designs-message",
+            error.message,
+            "error"
+        );
+
+        if (button) {
+            button.disabled = false;
+            button.textContent = "Reject Design";
+        }
+    }
+}
+
+
+// ============================================
 // CSV EXPORT HELPERS
 // ============================================
 
@@ -1957,6 +2610,22 @@ function setupEvents() {
     $("inventory-search")?.addEventListener("input", renderInventoryTable);
     $("inventory-stock-filter")?.addEventListener("change", renderInventoryTable);
 
+    // Custom design filters
+    $("custom-design-search")?.addEventListener(
+        "input",
+        renderCustomDesigns
+    );
+
+    $("custom-design-status-filter")?.addEventListener(
+        "change",
+        renderCustomDesigns
+    );
+
+    $("refresh-custom-designs")?.addEventListener(
+        "click",
+        loadCustomDesigns
+    );
+
     // Product form
     $("product-form")?.addEventListener("submit", saveProduct);
     $("product-category")?.addEventListener("change", updateSizeVisibility);
@@ -2002,13 +2671,32 @@ function setupEvents() {
 
         if (stockButton) {
             updateProductStock(stockButton.dataset.updateStock);
+            return;
+        }
+
+        const designButton = event.target.closest("[data-view-design]");
+
+        if (designButton) {
+            openCustomDesign(designButton.dataset.viewDesign);
+            return;
+        }
+
+        const rejectButton = event.target.closest("[data-reject-design]");
+
+        if (rejectButton) {
+            rejectCustomDesign(rejectButton.dataset.rejectDesign);
         }
     });
 
-    // Form submission for delivery details
+    // Form submission for delivery and custom design forms
     document.addEventListener("submit", (event) => {
         if (event.target.matches("#delivery-form")) {
             saveDeliveryDetails(event);
+            return;
+        }
+
+        if (event.target.matches("#custom-design-quote-form")) {
+            saveCustomDesignQuote(event);
         }
     });
 
@@ -2024,7 +2712,7 @@ function setupEvents() {
         }
     });
 
-    // Modal controls
+    // Order modal controls
     $("close-order-modal")?.addEventListener("click", closeOrderModal);
 
     $("order-modal")?.addEventListener("click", (event) => {
@@ -2036,6 +2724,7 @@ function setupEvents() {
     document.addEventListener("keydown", (event) => {
         if (event.key === "Escape") {
             closeOrderModal();
+            closeCustomDesignModal();
         }
     });
 }

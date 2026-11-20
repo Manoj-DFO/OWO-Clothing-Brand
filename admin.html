@@ -42,6 +42,12 @@
             <a href="#inventory-section" class="nav-link" data-section="inventory-section">
                 <span>▥</span> Inventory
             </a>
+
+            <!-- CUSTOM DESIGNS -->
+            <a href="#custom-designs-section" class="nav-link" data-section="custom-designs-section">
+                <span>✦</span> Custom Designs
+            </a>
+
         </nav>
 
         <div class="sidebar-bottom">
@@ -627,6 +633,78 @@
 
                     <div id="low-stock-list" class="low-stock-list">
                         <p>Loading inventory...</p>
+                    </div>
+
+                </div>
+
+            </section>
+
+
+
+            <!-- CUSTOM DESIGNS -->
+            <section id="custom-designs-section" class="page-section">
+
+                <div class="page-heading">
+                    <div>
+                        <p class="section-label">CUSTOMER DESIGN MANAGEMENT</p>
+                        <h1>Custom Designs</h1>
+                        <p>Review customer designs, confirm prices and manage available stock.</p>
+                    </div>
+
+                    <button type="button" class="primary-button" id="refresh-custom-designs">
+                        ↻ Refresh
+                    </button>
+                </div>
+
+                <div id="custom-designs-message" class="message"></div>
+
+                <div class="panel">
+
+                    <div class="panel-header">
+                        <div>
+                            <h3>Customer Design Requests</h3>
+                            <p>Review and manage submitted custom clothing designs.</p>
+                        </div>
+                    </div>
+
+                    <div class="filter-bar">
+
+                        <input
+                            type="search"
+                            id="custom-design-search"
+                            placeholder="Search customer or design..."
+                        >
+
+                        <select id="custom-design-status-filter">
+                            <option value="all">All Requests</option>
+                            <option value="Pending Review">Pending Review</option>
+                            <option value="Price Confirmed">Price Confirmed</option>
+                            <option value="Rejected">Rejected</option>
+                            <option value="Ordered">Ordered</option>
+                        </select>
+
+                    </div>
+
+                    <div class="table-wrapper">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Design ID</th>
+                                    <th>Customer</th>
+                                    <th>Garment</th>
+                                    <th>Size</th>
+                                    <th>Submitted</th>
+                                    <th>Status</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+
+                            <tbody id="custom-designs-table">
+                                <tr>
+                                    <td colspan="7">Loading custom designs...</td>
+                                </tr>
+                            </tbody>
+                        </table>
                     </div>
 
                 </div>

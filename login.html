@@ -12,95 +12,368 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 
-    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=Playfair+Display:wght@500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=Playfair+Display:wght@400;500;600;700&display=swap" rel="stylesheet">
 
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 </head>
 
 <body>
 
-    <header class="navbar">
-        <a href="index.html" class="logo">OWO<span>.</span></a>
+    <!-- LUXURY SILK BACKGROUND -->
 
-        <a href="index.html" class="back-link">
-            <i class="fa-solid fa-arrow-left"></i>
-            Back to Home
+    <div class="dot-background" aria-hidden="true">
+
+        <div class="dot-pattern"></div>
+
+        <svg class="silk-art"
+             viewBox="0 0 1600 900"
+             preserveAspectRatio="xMidYMid slice">
+
+            <defs>
+
+                <linearGradient id="silkLeft" x1="0" y1="0" x2="1" y2="1">
+                    <stop offset="0" stop-color="#030303"/>
+                    <stop offset="0.22" stop-color="#292929"/>
+                    <stop offset="0.38" stop-color="#080808"/>
+                    <stop offset="0.52" stop-color="#444444"/>
+                    <stop offset="0.66" stop-color="#090909"/>
+                    <stop offset="0.82" stop-color="#202020"/>
+                    <stop offset="1" stop-color="#000000"/>
+                </linearGradient>
+
+                <linearGradient id="silkRight" x1="0" y1="1" x2="1" y2="0">
+                    <stop offset="0" stop-color="#000000"/>
+                    <stop offset="0.2" stop-color="#303030"/>
+                    <stop offset="0.38" stop-color="#080808"/>
+                    <stop offset="0.55" stop-color="#454545"/>
+                    <stop offset="0.72" stop-color="#101010"/>
+                    <stop offset="1" stop-color="#000000"/>
+                </linearGradient>
+
+                <linearGradient id="silkHighlight" x1="0" y1="0" x2="1" y2="1">
+                    <stop offset="0" stop-color="#ffffff" stop-opacity="0.02"/>
+                    <stop offset="0.45" stop-color="#ffffff" stop-opacity="0.75"/>
+                    <stop offset="0.52" stop-color="#ffffff" stop-opacity="1"/>
+                    <stop offset="0.62" stop-color="#c9c9c9" stop-opacity="0.35"/>
+                    <stop offset="1" stop-color="#ffffff" stop-opacity="0.02"/>
+                </linearGradient>
+
+                <filter id="fabricBlur" x="-30%" y="-30%" width="160%" height="160%">
+                    <feGaussianBlur stdDeviation="12"/>
+                </filter>
+
+                <filter id="silverGlow" x="-50%" y="-50%" width="200%" height="200%">
+                    <feGaussianBlur stdDeviation="4" result="blur"/>
+                    <feMerge>
+                        <feMergeNode in="blur"/>
+                        <feMergeNode in="SourceGraphic"/>
+                    </feMerge>
+                </filter>
+
+            </defs>
+
+            <!-- LEFT TOP SILK FABRIC -->
+
+            <path
+                class="fabric-shape"
+                fill="url(#silkLeft)"
+                d="M0 0 H700
+                   C620 65 570 80 480 42
+                   C365 -10 280 30 205 95
+                   C135 155 75 170 0 205 Z"/>
+
+            <path
+                class="fabric-shape"
+                fill="url(#silkLeft)"
+                d="M0 110
+                   C110 65 175 80 245 125
+                   C320 170 390 125 470 80
+                   C550 35 620 20 700 0
+                   C605 125 530 155 440 165
+                   C320 180 260 240 180 300
+                   C100 360 40 390 0 410 Z"/>
+
+            <!-- LEFT SILK FOLDS -->
+
+            <path class="fabric-fold"
+                  d="M-30 185 C105 120 170 70 285 90 S470 40 600 -25"/>
+
+            <path class="fabric-fold"
+                  d="M-20 330 C115 270 165 190 240 130 S420 90 545 20"/>
+
+            <path class="fabric-fold"
+                  d="M-30 430 C120 390 185 320 205 240 S320 115 470 80"/>
+
+            <path class="fabric-shadow"
+                  d="M-30 220 C110 150 180 105 280 120 S455 65 590 0"/>
+
+            <path class="fabric-shadow"
+                  d="M-20 390 C120 345 180 265 225 190 S340 105 480 65"/>
+
+            <!-- RIGHT BOTTOM SILK FABRIC -->
+
+            <path
+                class="fabric-shape"
+                fill="url(#silkRight)"
+                d="M1600 900 H820
+                   C920 810 1020 760 1120 750
+                   C1240 735 1350 790 1430 730
+                   C1500 680 1550 610 1600 570 Z"/>
+
+            <path
+                class="fabric-shape"
+                fill="url(#silkRight)"
+                d="M1600 470
+                   C1500 500 1440 555 1415 630
+                   C1380 735 1300 785 1190 810
+                   C1080 840 980 870 900 900
+                   H1600 Z"/>
+
+            <!-- RIGHT SILK FOLDS -->
+
+            <path class="fabric-fold"
+                  d="M1650 370 C1510 430 1460 485 1445 570 S1500 720 1620 790"/>
+
+            <path class="fabric-fold"
+                  d="M1650 555 C1540 600 1510 700 1430 750 S1240 800 1120 900"/>
+
+            <path class="fabric-fold"
+                  d="M1650 650 C1550 740 1460 800 1340 815 S1080 850 950 950"/>
+
+            <path class="fabric-shadow"
+                  d="M1650 440 C1510 490 1470 560 1460 630 S1510 760 1630 830"/>
+
+            <path class="fabric-shadow"
+                  d="M1600 700 C1490 790 1400 850 1280 865 S1050 900 940 950"/>
+
+            <!-- SILVER LIGHT TRAILS -->
+
+            <path class="silver-trail"
+                  pathLength="1000"
+                  d="M-30 430 C120 390 185 320 205 240 S320 115 470 80"/>
+
+            <path class="silver-trail glow-trail"
+                  pathLength="1000"
+                  d="M-30 430 C120 390 185 320 205 240 S320 115 470 80"/>
+
+            <path class="silver-trail"
+                  pathLength="1000"
+                  d="M-30 185 C105 120 170 70 285 90 S470 40 600 -25"/>
+
+            <path class="silver-trail glow-trail"
+                  pathLength="1000"
+                  d="M-30 185 C105 120 170 70 285 90 S470 40 600 -25"/>
+
+            <path class="silver-trail"
+                  pathLength="1000"
+                  d="M1650 370 C1510 430 1460 485 1445 570 S1500 720 1620 790"/>
+
+            <path class="silver-trail glow-trail"
+                  pathLength="1000"
+                  d="M1650 370 C1510 430 1460 485 1445 570 S1500 720 1620 790"/>
+
+            <path class="silver-trail"
+                  pathLength="1000"
+                  d="M1650 650 C1550 740 1460 800 1340 815 S1080 850 950 950"/>
+
+            <path class="silver-trail glow-trail"
+                  pathLength="1000"
+                  d="M1650 650 C1550 740 1460 800 1340 815 S1080 850 950 950"/>
+
+        </svg>
+
+    </div>
+
+    <!-- CENTERED OWO LOGO -->
+
+    <header class="navbar">
+
+        <a href="index.html" class="brand-logo">
+
+            <svg class="hanger-logo"
+                 viewBox="0 0 100 65"
+                 xmlns="http://www.w3.org/2000/svg"
+                 aria-hidden="true">
+
+                <path d="M50 7
+                         C50 0 63 0 63 9
+                         C63 15 54 18 50 23
+                         L50 27
+                         L10 49
+                         L90 49
+                         L50 27"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2.4"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"/>
+
+            </svg>
+
+            <span class="brand-name">OWO</span>
+
         </a>
+
     </header>
 
-    <main class="login-container">
+    <main class="login-page">
 
-        <section class="login-image">
-            <div class="image-content">
-                <p>THE OWO EXPERIENCE</p>
-                <h1>YOUR STYLE.<br>YOUR IDENTITY.<br><span>YOUR OWO.</span></h1>
-                <p>Sign in and make every experience personal.</p>
+        <section class="login-card">
+
+            <!-- WELCOME HEADING -->
+
+            <div class="welcome-heading">
+
+                <span class="heading-line"></span>
+
+                <p class="eyebrow">WELCOME TO OWO</p>
+
+                <span class="heading-line"></span>
+
             </div>
-        </section>
 
-        <section class="login-form-section">
+            <div class="card-top">
 
-            <div class="login-form-container">
+                <h1>
+                    Get started with
+                    <span>OWO</span>
+                </h1>
 
-                <p class="eyebrow">WELCOME BACK</p>
+                <div class="heading-underline"></div>
 
-                <h2>Sign <span>In.</span></h2>
+            </div>
 
-                <p class="subtitle">
-                    Enter your account details to continue.
-                </p>
+            <!-- GOOGLE LOGIN -->
 
-                <form id="loginForm">
+            <a href="http://localhost:3000/api/auth/google"
+               class="google-btn"
+               id="googleLoginButton">
 
-                    <div class="form-group">
-                        <label for="email">EMAIL ADDRESS</label>
+                <svg class="google-icon"
+                     viewBox="0 0 48 48"
+                     xmlns="http://www.w3.org/2000/svg"
+                     aria-hidden="true">
+
+                    <path fill="#4285F4"
+                        d="M43.6 24.5c0-1.4-.1-2.8-.4-4.1H24v7.8h11a9.4 9.4 0 0 1-4.1 6.2v5.1h6.6c3.9-3.6 6.1-8.8 6.1-15Z"/>
+
+                    <path fill="#34A853"
+                        d="M24 44c5.5 0 10.1-1.8 13.5-4.9l-6.6-5.1c-1.8 1.2-4.1 2-6.9 2-5.3 0-9.8-3.6-11.4-8.4H5.8v5.3A20 20 0 0 0 24 44Z"/>
+
+                    <path fill="#FBBC05"
+                        d="M12.6 27.6a12 12 0 0 1 0-7.2v-5.3H5.8a20 20 0 0 0 0 17.8l6.8-5.3Z"/>
+
+                    <path fill="#EA4335"
+                        d="M24 12c3 0 5.7 1 7.8 3.1l5.9-5.9C34.1 5.8 29.5 4 24 4A20 20 0 0 0 5.8 15.1l6.8 5.3C14.2 15.6 18.7 12 24 12Z"/>
+
+                </svg>
+
+                <span>Continue with Google</span>
+
+            </a>
+
+            <!-- DIVIDER -->
+
+            <div class="separator">
+                <span></span>
+                <p>OR</p>
+                <span></span>
+            </div>
+
+            <!-- EMAIL LOGIN - PRESERVED -->
+
+            <form id="loginForm" autocomplete="off">
+
+                <div class="form-group">
+
+                    <div class="input-wrapper">
+
+                        <i class="fa-regular fa-envelope input-icon"></i>
+
                         <input
                             type="email"
                             id="email"
-                            placeholder="Enter your email"
+                            name="login-email"
+                            placeholder="Email address"
+                            autocomplete="off"
+                            aria-label="Email address"
                             required
                         >
+
                     </div>
 
-                    <div class="form-group">
-                        <label for="password">PASSWORD</label>
+                </div>
 
-                        <div class="password-wrapper">
-                            <input
-                                type="password"
-                                id="password"
-                                placeholder="Enter your password"
-                                required
-                            >
+                <div class="form-group">
 
-                            <button type="button" id="togglePassword" aria-label="Show password">
-                                <i class="fa-regular fa-eye"></i>
-                            </button>
-                        </div>
+                    <div class="input-wrapper password-wrapper">
+
+                        <i class="fa-solid fa-lock input-icon"></i>
+
+                        <input
+                            type="password"
+                            id="password"
+                            name="login-password"
+                            placeholder="Password"
+                            autocomplete="new-password"
+                            aria-label="Password"
+                            required
+                        >
+
+                        <button
+                            type="button"
+                            id="togglePassword"
+                            aria-label="Show password"
+                        >
+                            <i class="fa-regular fa-eye"></i>
+                        </button>
+
                     </div>
 
-                    <p id="message" class="message"></p>
-
-                    <button type="submit" class="login-btn" id="loginButton">
-                        SIGN IN
-                        <i class="fa-solid fa-arrow-right"></i>
-                    </button>
-
-                </form>
-
-                <div class="register-link">
-                    Don't have an account?
-                    <a href="register.html">Create Account</a>
                 </div>
 
-                <div class="login-footer">
-                    <a href="index.html">OWO</a>
-                    <span>© 2026 OWO. ALL RIGHTS RESERVED.</span>
-                </div>
+                <p id="message"
+                   class="message"
+                   role="status"
+                   aria-live="polite"></p>
 
+                <button type="submit"
+                        class="login-btn"
+                        id="loginButton">
+
+                    <span>SIGN IN</span>
+                    <i class="fa-solid fa-arrow-right"></i>
+
+                </button>
+
+            </form>
+
+            <!-- REGISTER - PRESERVED -->
+
+            <div class="register-link">
+                Don't have an account?
+                <a href="register.html">Create Account</a>
+            </div>
+
+            <!-- SECURE FOOTER - PRESERVED -->
+
+            <div class="card-footer">
+                <span>SECURE CUSTOMER ACCESS</span>
+
+                <span>
+                    <i class="fa-solid fa-shield-halved"></i>
+                    OWO ACCOUNT
+                </span>
             </div>
 
         </section>
+
+        <!-- PAGE FOOTER - PRESERVED -->
+
+        <footer class="login-footer">
+            <span>OWO.</span>
+            <p>© 2026 OWO. ALL RIGHTS RESERVED.</p>
+        </footer>
 
     </main>
 

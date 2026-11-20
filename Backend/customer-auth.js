@@ -2,16 +2,14 @@
 const express = require("express");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
+const crypto = require("crypto");
 const { rateLimit } = require("express-rate-limit");
+const { OAuth2Client } = require("google-auth-library");
 const pool = require("./db");
 
 const router = express.Router();
 
 const TOKEN_EXPIRY = "7d";
-
-// ===================================
-// CUSTOMER LOGIN RATE LIMITER
-// ===================================
 
 const customerLoginLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
@@ -39,10 +37,6 @@ function getJwtSecret() {
     return secret;
 }
 
-// ===================================
-// GENERATE CUSTOMER TOKEN
-// ===================================
-
 function generateCustomerToken(customerId) {
     return jwt.sign(
         {
@@ -56,6 +50,246 @@ function generateCustomerToken(customerId) {
         }
     );
 }
+
+// ===================================
+// GOOGLE OAUTH CONFIGURATION
+// ===================================
+
+function getGoogleClient() {
+    const {
+        GOOGLE_CLIENT_ID,
+        GOOGLE_CLIENT_SECRET,
+        GOOGLE_CALLBACK_URL
+    } = process.env;
+
+    if (
+        !GOOGLE_CLIENT_ID ||
+        !GOOGLE_CLIENT_SECRET ||
+        !GOOGLE_CALLBACK_URL
+    ) {
+        throw new Error("Google OAuth environment variables are missing.");
+    }
+
+    return new OAuth2Client(
+        GOOGLE_CLIENT_ID,
+        GOOGLE_CLIENT_SECRET,
+        GOOGLE_CALLBACK_URL
+    );
+}
+
+function getFrontendLoginUrl() {
+    return process.env.GOOGLE_SUCCESS_REDIRECT_URL ||
+        "http://127.0.0.1:5500/login.html";
+}
+
+function redirectGoogleResult(res, values) {
+    const url = new URL(getFrontendLoginUrl());
+
+    url.hash = new URLSearchParams(values).toString();
+
+    return res.redirect(url.toString());
+}
+
+// ===================================
+// GOOGLE LOGIN START
+// ===================================
+
+router.get("/google", (req, res) => {
+    try {
+        const googleClient = getGoogleClient();
+
+        const state = crypto.randomBytes(32).toString("hex");
+
+        res.setHeader(
+            "Set-Cookie",
+            `owo_google_oauth_state=${state}; HttpOnly; SameSite=Lax; Path=/api/auth/google; Max-Age=600`
+        );
+
+        const authorizationUrl = googleClient.generateAuthUrl({
+            access_type: "online",
+            prompt: "select_account",
+            scope: [
+                "openid",
+                "email",
+                "profile"
+            ],
+            state
+        });
+
+        return res.redirect(authorizationUrl);
+
+    } catch (error) {
+        console.error("Google login start error:", error);
+
+        return res.status(500).send(
+            "Google login is not configured correctly."
+        );
+    }
+});
+
+// ===================================
+// GOOGLE LOGIN CALLBACK
+// ===================================
+
+router.get("/google/callback", async (req, res) => {
+    const stateCookie = (req.headers.cookie || "")
+        .split(";")
+        .map(item => item.trim())
+        .find(item => item.startsWith("owo_google_oauth_state="));
+
+    const savedState = stateCookie
+        ? stateCookie.substring("owo_google_oauth_state=".length)
+        : "";
+
+    res.setHeader(
+        "Set-Cookie",
+        "owo_google_oauth_state=; HttpOnly; SameSite=Lax; Path=/api/auth/google; Max-Age=0"
+    );
+
+    try {
+        if (req.query.error) {
+            return redirectGoogleResult(res, {
+                google_error: "Google sign-in was cancelled."
+            });
+        }
+
+        if (
+            typeof req.query.state !== "string" ||
+            !savedState ||
+            req.query.state !== savedState
+        ) {
+            return redirectGoogleResult(res, {
+                google_error: "Google sign-in verification failed."
+            });
+        }
+
+        if (typeof req.query.code !== "string") {
+            return redirectGoogleResult(res, {
+                google_error: "Google authorization code is missing."
+            });
+        }
+
+        const googleClient = getGoogleClient();
+
+        const { tokens } = await googleClient.getToken(
+            req.query.code
+        );
+
+        if (!tokens.id_token) {
+            throw new Error("Google ID token was not returned.");
+        }
+
+        const ticket = await googleClient.verifyIdToken({
+            idToken: tokens.id_token,
+            audience: process.env.GOOGLE_CLIENT_ID
+        });
+
+        const googleUser = ticket.getPayload();
+
+        if (
+            !googleUser ||
+            !googleUser.sub ||
+            !googleUser.email ||
+            !googleUser.email_verified ||
+            !googleUser.name
+        ) {
+            return redirectGoogleResult(res, {
+                google_error: "Your Google account could not be verified."
+            });
+        }
+
+        const googleId = googleUser.sub;
+        const email = googleUser.email.trim().toLowerCase();
+        const name = googleUser.name.trim();
+
+        if (!email || !name || name.length > 150) {
+            return redirectGoogleResult(res, {
+                google_error: "Invalid Google account details."
+            });
+        }
+
+        // Check whether this Google account already exists.
+        let result = await pool.query(
+            `SELECT id, name, email, phone, google_id
+             FROM users
+             WHERE google_id = $1
+             LIMIT 1`,
+            [googleId]
+        );
+
+        let customer;
+
+        if (result.rows.length > 0) {
+            customer = result.rows[0];
+
+            if (customer.email.toLowerCase() !== email) {
+                return redirectGoogleResult(res, {
+                    google_error: "Google account email does not match."
+                });
+            }
+
+        } else {
+            // Check whether an OWO account already uses this email.
+            result = await pool.query(
+                `SELECT id, name, email, phone, google_id
+                 FROM users
+                 WHERE LOWER(email) = LOWER($1)
+                 LIMIT 1`,
+                [email]
+            );
+
+            if (result.rows.length > 0) {
+                customer = result.rows[0];
+
+                if (
+                    customer.google_id &&
+                    customer.google_id !== googleId
+                ) {
+                    return redirectGoogleResult(res, {
+                        google_error: "This email is linked to another Google account."
+                    });
+                }
+
+                // Link the verified Google account to the existing user.
+                await pool.query(
+                    `UPDATE users
+                     SET google_id = $1,
+                         updated_at = NOW()
+                     WHERE id = $2`,
+                    [googleId, customer.id]
+                );
+
+            } else {
+                // Create a new OWO customer account.
+                const randomPassword = crypto.randomBytes(48).toString("hex");
+                const passwordHash = await bcrypt.hash(randomPassword, 12);
+
+                const newCustomer = await pool.query(
+                    `INSERT INTO users
+                        (name, email, phone, password_hash, google_id)
+                     VALUES ($1, $2, NULL, $3, $4)
+                     RETURNING id, name, email, phone, google_id`,
+                    [name, email, passwordHash, googleId]
+                );
+
+                customer = newCustomer.rows[0];
+            }
+        }
+
+        const token = generateCustomerToken(customer.id);
+
+        return redirectGoogleResult(res, {
+            google_token: token
+        });
+
+    } catch (error) {
+        console.error("Google authentication error:", error);
+
+        return redirectGoogleResult(res, {
+            google_error: "Google sign-in failed. Please try again."
+        });
+    }
+});
 
 // ===================================
 // CUSTOMER REGISTRATION

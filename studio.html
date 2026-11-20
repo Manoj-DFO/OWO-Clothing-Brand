@@ -4,128 +4,105 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
     <title>OWO | Custom Studio</title>
 
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="studio.css">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@500;600;700&display=swap" rel="stylesheet">
 </head>
+
 <body>
 
 <header class="studio-header">
     <a href="index.html" class="studio-brand">OWO<span>.</span></a>
+
     <div class="header-label">THE CUSTOM STUDIO</div>
+
     <a href="cart.html" class="cart-link">VIEW CART →</a>
 </header>
 
 <main class="studio-page">
 
     <section class="studio-intro">
-        <p class="eyebrow">YOUR STYLE. YOUR RULES.</p>
-        <h1>Create Your <span>Own.</span></h1>
-        <p>Choose a garment, select a colour and make it yours.</p>
+        <p>YOUR STYLE. YOUR RULES.</p>
+        <h1>Create Your Own.</h1>
+        <span>Design clothing that fits your style and your measurements.</span>
     </section>
 
     <div class="studio-layout">
 
-        <!-- LEFT: CUSTOMIZATION CONTROLS -->
+        <!-- LEFT CONTROLS -->
         <aside class="studio-controls">
 
-            <section class="control-section">
-                <p class="section-number">01 / SELECT GARMENT</p>
-                <h2>Choose your piece</h2>
+            <div class="control-section">
+                <h3>01. Choose Your Garment</h3>
 
                 <div class="garment-options">
-                    <button class="garment-option active" data-garment="tshirt">
-                        T-Shirt
-                    </button>
-                    <button class="garment-option" data-garment="shirt">
-                        Shirt
-                    </button>
-                    <button class="garment-option" data-garment="hoodie">
-                        Hoodie
-                    </button>
-                    <button class="garment-option" data-garment="henley">
-                        Henley
-                    </button>
-                    <button class="garment-option" data-garment="pants">
-                        Pants
-                    </button>
+                    <button class="garment-option active" data-garment="tshirt">T-Shirt</button>
+                    <button class="garment-option" data-garment="shirt">Shirt</button>
+                    <button class="garment-option" data-garment="hoodie">Hoodie</button>
+                    <button class="garment-option" data-garment="henley">Henley</button>
+                    <button class="garment-option" data-garment="pants">Pants</button>
                 </div>
-            </section>
+            </div>
 
-            <section class="control-section" id="fitSection" hidden>
-                <p class="section-number">02 / PANTS FIT</p>
-                <h2>Choose your fit</h2>
+            <!-- FIT -->
+            <div class="control-section" id="fitSection" style="display:none;">
+                <h3>02. Choose Your Fit</h3>
 
                 <div class="fit-options">
-                    <button class="fit-option active" data-fit="straight">
-                        Straight Fit
-                    </button>
-                    <button class="fit-option" data-fit="bootcut">
-                        Bootcut Fit
-                    </button>
+                    <button class="fit-option active" data-fit="straight">Straight Fit</button>
+                    <button class="fit-option" data-fit="bootcut">Bootcut Fit</button>
                 </div>
-            </section>
+            </div>
 
-            <section class="control-section">
-                <p class="section-number">03 / COLOUR</p>
-                <h2>Select your colour</h2>
+            <!-- COLOUR -->
+            <div class="control-section">
+                <h3>03. Choose Colour</h3>
 
                 <div class="colour-options">
-                    <button class="colour-option active" data-colour="#F5F3EE"
-                        style="--swatch:#F5F3EE" aria-label="White"></button>
-                    <button class="colour-option" data-colour="#171717"
-                        style="--swatch:#171717" aria-label="Black"></button>
-                    <button class="colour-option" data-colour="#172B4D"
-                        style="--swatch:#172B4D" aria-label="Navy"></button>
-                    <button class="colour-option" data-colour="#641F32"
-                        style="--swatch:#641F32" aria-label="Maroon"></button>
-                    <button class="colour-option" data-colour="#244936"
-                        style="--swatch:#244936" aria-label="Forest Green"></button>
-                    <button class="colour-option" data-colour="#76533F"
-                        style="--swatch:#76533F" aria-label="Mocha"></button>
-                    <button class="colour-option" data-colour="#C8B99F"
-                        style="--swatch:#C8B99F" aria-label="Beige"></button>
-                    <button class="colour-option" data-colour="#454545"
-                        style="--swatch:#454545" aria-label="Charcoal"></button>
-                    <button class="colour-option" data-colour="#66839B"
-                        style="--swatch:#66839B" aria-label="Slate Blue"></button>
+                    <button class="colour-swatch active" data-colour="#F5F3EE" style="background:#F5F3EE;" aria-label="White"></button>
+                    <button class="colour-swatch" data-colour="#171717" style="background:#171717;" aria-label="Black"></button>
+                    <button class="colour-swatch" data-colour="#172B4D" style="background:#172B4D;" aria-label="Navy Blue"></button>
+                    <button class="colour-swatch" data-colour="#641F32" style="background:#641F32;" aria-label="Maroon"></button>
+                    <button class="colour-swatch" data-colour="#244936" style="background:#244936;" aria-label="Forest Green"></button>
+                    <button class="colour-swatch" data-colour="#76533F" style="background:#76533F;" aria-label="Mocha"></button>
+                    <button class="colour-swatch" data-colour="#C8B99F" style="background:#C8B99F;" aria-label="Beige"></button>
+                    <button class="colour-swatch" data-colour="#454545" style="background:#454545;" aria-label="Charcoal"></button>
+                    <button class="colour-swatch" data-colour="#66839B" style="background:#66839B;" aria-label="Slate Blue"></button>
                 </div>
+            </div>
 
-                <p class="selected-colour" id="selectedColour">White</p>
-            </section>
+            <!-- LOGO -->
+            <div class="control-section">
+                <h3>04. Add Your Design</h3>
 
-            <section class="control-section">
-                <p class="section-number">04 / YOUR DESIGN</p>
-                <h2>Upload your logo</h2>
-
-                <label class="upload-area" for="logoUpload">
-                    <span class="upload-symbol">＋</span>
-                    <strong>Upload image</strong>
-                    <small>PNG, JPG or WEBP · Maximum 5 MB</small>
+                <label for="logoUpload" class="upload-label">
+                    Upload Logo / Design
                 </label>
-                <input type="file" id="logoUpload"
-                    accept="image/png,image/jpeg,image/webp" hidden>
 
-                <div class="logo-tools" id="logoTools" hidden>
-                    <label for="logoSize">Logo size</label>
-                    <input type="range" id="logoSize"
-                        min="8" max="38" value="20">
+                <input type="file" id="logoUpload" accept="image/*">
 
-                    <div class="logo-actions">
-                        <button type="button" id="centerLogo">Center logo</button>
-                        <button type="button" id="removeLogo">Remove logo</button>
+                <div id="logoTools" style="display:none;">
+                    <label for="logoSize">Logo Size</label>
+                    <input type="range" id="logoSize" min="5" max="50" value="20">
+
+                    <div class="logo-buttons">
+                        <button type="button" id="centerLogo">Center Logo</button>
+                        <button type="button" id="removeLogo">Remove Logo</button>
                     </div>
+
+                    <p>Drag the logo on the preview to position it.</p>
                 </div>
+            </div>
 
-                <p class="helper-text">
-                    Drag your uploaded logo on the garment to position it.
-                </p>
-            </section>
-
-            <section class="control-section">
-                <p class="section-number">05 / SIZE</p>
-                <h2>Select your size</h2>
+            <!-- SIZE -->
+            <div class="control-section">
+                <h3>05. Select Standard Size</h3>
 
                 <div class="size-options">
                     <button class="size-option" data-size="S">S</button>
@@ -134,80 +111,189 @@
                     <button class="size-option" data-size="XL">XL</button>
                     <button class="size-option" data-size="XXL">XXL</button>
                 </div>
-            </section>
+
+                <p>You can also provide your exact measurements below.</p>
+            </div>
+
+            <!-- MEASUREMENTS -->
+            <div class="control-section measurement-section">
+                <h3>06. Your Body Measurements</h3>
+
+                <p class="measurement-note">
+                    Enter your measurements. Select cm or inches separately for each measurement.
+                </p>
+
+                <!-- UPPER BODY -->
+                <div id="upperMeasurements">
+
+                    <h4>Upper Body Measurements</h4>
+
+                    <div class="measurement-field">
+                        <label for="shoulderMeasurement">Shoulder</label>
+                        <div class="measurement-input">
+                            <input type="number" id="shoulderMeasurement" min="0" step="0.1" placeholder="Enter value">
+                            <select id="shoulderUnit">
+                                <option value="cm">cm</option>
+                                <option value="inch">inch</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="measurement-field">
+                        <label for="chestMeasurement">Chest</label>
+                        <div class="measurement-input">
+                            <input type="number" id="chestMeasurement" min="0" step="0.1" placeholder="Enter value">
+                            <select id="chestUnit">
+                                <option value="cm">cm</option>
+                                <option value="inch">inch</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="measurement-field">
+                        <label for="upperWaistMeasurement">Waist</label>
+                        <div class="measurement-input">
+                            <input type="number" id="upperWaistMeasurement" min="0" step="0.1" placeholder="Enter value">
+                            <select id="upperWaistUnit">
+                                <option value="cm">cm</option>
+                                <option value="inch">inch</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="measurement-field">
+                        <label for="sleeveMeasurement">Sleeve Length</label>
+                        <div class="measurement-input">
+                            <input type="number" id="sleeveMeasurement" min="0" step="0.1" placeholder="Enter value">
+                            <select id="sleeveUnit">
+                                <option value="cm">cm</option>
+                                <option value="inch">inch</option>
+                            </select>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- PANTS -->
+                <div id="pantsMeasurements" style="display:none;">
+
+                    <h4>Pants Measurements</h4>
+
+                    <div class="measurement-field">
+                        <label for="pantsWaistMeasurement">Waist</label>
+                        <div class="measurement-input">
+                            <input type="number" id="pantsWaistMeasurement" min="0" step="0.1" placeholder="Enter value">
+                            <select id="pantsWaistUnit">
+                                <option value="cm">cm</option>
+                                <option value="inch">inch</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="measurement-field">
+                        <label for="hipMeasurement">Hip</label>
+                        <div class="measurement-input">
+                            <input type="number" id="hipMeasurement" min="0" step="0.1" placeholder="Enter value">
+                            <select id="hipUnit">
+                                <option value="cm">cm</option>
+                                <option value="inch">inch</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="measurement-field">
+                        <label for="bottomLegMeasurement">Bottom Leg Opening Width</label>
+                        <div class="measurement-input">
+                            <input type="number" id="bottomLegMeasurement" min="0" step="0.1" placeholder="Enter value">
+                            <select id="bottomLegUnit">
+                                <option value="cm">cm</option>
+                                <option value="inch">inch</option>
+                            </select>
+                        </div>
+                    </div>
+
+                </div>
+
+            </div>
 
         </aside>
 
-        <!-- CENTER: LIVE PREVIEW -->
+        <!-- CENTRE PREVIEW -->
         <section class="preview-section">
 
             <div class="preview-heading">
-                <div>
-                    <p class="section-number">LIVE PREVIEW</p>
-                    <h2 id="previewTitle">Classic T-Shirt</h2>
-                </div>
-                <span class="front-label">FRONT VIEW</span>
+                <h2 id="previewTitle">Your T-Shirt</h2>
+                <p>LIVE DESIGN PREVIEW</p>
             </div>
 
-            <div class="preview-stage">
+            <div class="canvas-container">
                 <canvas id="garmentCanvas" width="800" height="900"></canvas>
-
-                <div class="preview-loading" id="previewMessage">
-                    Loading garment image...
-                </div>
             </div>
 
-            <p class="preview-hint">
-                Your design appears on the front of the garment.
-            </p>
+            <p id="previewMessage"></p>
 
         </section>
 
-        <!-- RIGHT: SUMMARY -->
+        <!-- RIGHT SUMMARY -->
         <aside class="summary-panel">
-            <p class="section-number">YOUR CREATION</p>
-            <h2>Design Summary</h2>
 
-            <div class="summary-line">
+            <h2>Your Design</h2>
+
+            <div class="summary-row">
                 <span>Garment</span>
                 <strong id="summaryGarment">T-Shirt</strong>
             </div>
 
-            <div class="summary-line">
+            <div class="summary-row">
                 <span>Colour</span>
                 <strong id="summaryColour">White</strong>
             </div>
 
-            <div class="summary-line" id="summaryFitRow" hidden>
+            <div class="summary-row" id="summaryFitRow" style="display:none;">
                 <span>Fit</span>
-                <strong id="summaryFit">Straight</strong>
+                <strong id="summaryFit">Straight Fit</strong>
             </div>
 
-            <div class="summary-line">
+            <div class="summary-row">
                 <span>Size</span>
                 <strong id="summarySize">M</strong>
             </div>
 
-            <div class="summary-line">
+            <div class="summary-row">
                 <span>Logo</span>
-                <strong id="summaryLogo">Not added</strong>
+                <strong id="summaryLogo">No Logo</strong>
             </div>
 
-            <div class="summary-note">
-                Custom garment pricing will be confirmed before your order is processed.
+            <div class="summary-row">
+                <span>Measurements</span>
+                <strong id="summaryMeasurements">Not entered</strong>
             </div>
 
-            <button class="add-cart-button" id="addToCart">
-                ADD TO CART
-                <span>→</span>
+            <div class="price-notice">
+                <h3>Price Confirmation</h3>
+                <p>
+                    Your custom design will be reviewed by OWO.
+                    The final price will be confirmed before you place your order.
+                </p>
+            </div>
+
+            <p class="summary-note">
+                Your design and measurements will be saved with your custom order.
+            </p>
+
+            <button type="button" id="addToCart" class="add-cart-button">
+                SUBMIT CUSTOM DESIGN
             </button>
 
-            <p class="cart-message" id="cartMessage"></p>
+            <p id="cartMessage"></p>
+
         </aside>
 
     </div>
+
 </main>
 
 <script src="studio.js"></script>
+
 </body>
 </html>

@@ -1,4 +1,3 @@
-
 const express = require("express");
 const cors = require("cors");
 const crypto = require("crypto");
@@ -8,10 +7,18 @@ const pool = require("./db");
 require("dotenv").config();
 
 const { router: authRoutes, requireAdmin } = require("./auth");
+
 const {
     router: customerAuthRoutes,
     requireCustomer
 } = require("./customer-auth");
+
+// CUSTOM DESIGN ROUTES
+const {
+    router: customDesignRoutes,
+    adminRouter: adminCustomDesignRoutes,
+    initializeCustomDesignDatabase
+} = require("./custom-design-routes");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -33,7 +40,6 @@ const allowedOrigins = [
 
 app.use(cors({
     origin: (origin, callback) => {
-        // Allow requests without an Origin header, such as server-to-server requests.
         if (!origin || allowedOrigins.includes(origin)) {
             return callback(null, true);
         }
@@ -54,6 +60,22 @@ app.use(express.json({ limit: "1mb" }));
 app.use("/api/admin", authRoutes);
 app.use("/api/admin", requireAdmin);
 app.use("/api/auth", customerAuthRoutes);
+
+
+// ===================================
+// CUSTOM DESIGN ROUTES
+// ===================================
+
+app.use(
+    "/api/custom-designs",
+    requireCustomer,
+    customDesignRoutes
+);
+
+app.use(
+    "/api/admin/custom-designs",
+    adminCustomDesignRoutes
+);
 
 
 // ===================================
@@ -347,6 +369,32 @@ async function initializeDeliveryDatabase() {
 
 
 // ===================================
+// CUSTOM ORDER ITEM DATABASE SUPPORT
+// ===================================
+
+async function initializeCustomOrderItemsDatabase() {
+    await pool.query(`
+        ALTER TABLE order_items
+        ALTER COLUMN product_id DROP NOT NULL
+    `);
+
+    await pool.query(`
+        ALTER TABLE order_items
+        ADD COLUMN IF NOT EXISTS custom_design_id BIGINT
+        REFERENCES custom_designs(id) ON DELETE SET NULL
+    `);
+
+    await pool.query(`
+        CREATE INDEX IF NOT EXISTS
+        idx_order_items_custom_design_id
+        ON order_items(custom_design_id)
+    `);
+
+    console.log("OWO custom order item database initialized.");
+}
+
+
+// ===================================
 // TRACKING EVENT HELPER
 // ===================================
 
@@ -381,7 +429,6 @@ app.get("/", (req, res) => {
 
 // ===================================
 // DATABASE HEALTH CHECK
-// DOES NOT EXPOSE DATABASE DETAILS
 // ===================================
 
 app.get("/api/health", async (req, res) => {
@@ -680,18 +727,9 @@ app.delete("/api/admin/products/:id", async (req, res) => {
 // ===================================
 
 app.post("/api/orders", requireCustomer, async (req, res) => {
-    const {
-        customer,
-        products,
-        payment
-    } = req.body;
+    const { customer, products, payment } = req.body;
 
-    const requiredFields = [
-        "address",
-        "city",
-        "state",
-        "pincode"
-    ];
+    const requiredFields = ["address", "city", "state", "pincode"];
 
     if (
         !customer ||
@@ -716,8 +754,6 @@ app.post("/api/orders", requireCustomer, async (req, res) => {
         });
     }
 
-    // ONLINE PAYMENT IS DISABLED UNTIL A PAYMENT GATEWAY IS CONFIGURED.
-
     if (payment !== "cod") {
         return res.status(400).json({
             message: "Online payment is coming soon. Please choose Cash on Delivery."
@@ -734,29 +770,78 @@ app.post("/api/orders", requireCustomer, async (req, res) => {
         });
     }
 
+    const preparedItems = [];
+
     for (const item of products) {
+        if (!item || typeof item !== "object") {
+            return res.status(400).json({
+                message: "Invalid product or quantity."
+            });
+        }
+
+        const quantity = Number(item.quantity);
+
         if (
-            !item ||
-            !/^[1-9]\d*$/.test(String(item.id)) ||
-            !Number.isSafeInteger(Number(item.id)) ||
-            !Number.isInteger(Number(item.quantity)) ||
-            Number(item.quantity) < 1 ||
-            Number(item.quantity) > 100
+            !Number.isSafeInteger(quantity) ||
+            quantity < 1 ||
+            quantity > 100
         ) {
             return res.status(400).json({
                 message: "Invalid product or quantity."
             });
         }
 
-        if (
-            item.size != null &&
-            (
-                typeof item.size !== "string" ||
-                !ALLOWED_SIZES.includes(item.size)
-            )
-        ) {
-            return res.status(400).json({
-                message: "Invalid product size."
+        const isCustom =
+            item.isCustom === true ||
+            String(item.id || "").startsWith("custom-");
+
+        if (isCustom) {
+            const rawId =
+                item.customDesignId ||
+                String(item.id || "").replace(/^custom-/, "");
+
+            if (
+                !/^[1-9]\d*$/.test(String(rawId)) ||
+                !Number.isSafeInteger(Number(rawId))
+            ) {
+                return res.status(400).json({
+                    message: "Invalid custom design ID."
+                });
+            }
+
+            preparedItems.push({
+                type: "custom",
+                id: Number(rawId),
+                quantity,
+                size: item.size || null
+            });
+        } else {
+            if (
+                !/^[1-9]\d*$/.test(String(item.id)) ||
+                !Number.isSafeInteger(Number(item.id))
+            ) {
+                return res.status(400).json({
+                    message: "Invalid product or quantity."
+                });
+            }
+
+            if (
+                item.size != null &&
+                (
+                    typeof item.size !== "string" ||
+                    !ALLOWED_SIZES.includes(item.size)
+                )
+            ) {
+                return res.status(400).json({
+                    message: "Invalid product size."
+                });
+            }
+
+            preparedItems.push({
+                type: "product",
+                id: Number(item.id),
+                quantity,
+                size: item.size || null
             });
         }
     }
@@ -782,78 +867,208 @@ app.post("/api/orders", requireCustomer, async (req, res) => {
 
         const account = customerResult.rows[0];
 
+        // FIX: Use the phone entered during checkout first.
+        // If it is not provided, use the registered account phone.
+        const orderPhone =
+            String(customer.phone || account.phone || "").trim();
+
+        if (!/^[0-9]{10}$/.test(orderPhone)) {
+            throw new OrderRequestError(
+                "Please enter a valid 10-digit phone number."
+            );
+        }
+
         const productIds = [
-            ...new Set(products.map(item => Number(item.id)))
+            ...new Set(
+                preparedItems
+                    .filter(item => item.type === "product")
+                    .map(item => item.id)
+            )
         ];
 
-        const productResult = await client.query(
-            `SELECT
-                id,
-                name,
-                price,
-                stock_quantity,
-                is_active,
-                sizes
-             FROM products
-             WHERE id = ANY($1::bigint[])
-             FOR UPDATE`,
-            [productIds]
-        );
+        const customDesignIds = [
+            ...new Set(
+                preparedItems
+                    .filter(item => item.type === "custom")
+                    .map(item => item.id)
+            )
+        ];
 
-        const productMap = new Map(
-            productResult.rows.map(product => [
-                String(product.id),
-                product
-            ])
-        );
+        const productMap = new Map();
+
+        if (productIds.length > 0) {
+            const productResult = await client.query(
+                `SELECT
+                    id,
+                    name,
+                    price,
+                    stock_quantity,
+                    is_active,
+                    sizes
+                 FROM products
+                 WHERE id = ANY($1::bigint[])
+                 FOR UPDATE`,
+                [productIds]
+            );
+
+            for (const product of productResult.rows) {
+                productMap.set(String(product.id), product);
+            }
+        }
+
+        const customDesignMap = new Map();
+
+        if (customDesignIds.length > 0) {
+            const customResult = await client.query(
+                `SELECT
+                    id,
+                    user_id,
+                    design_data,
+                    status,
+                    quoted_price,
+                    stock_quantity
+                 FROM custom_designs
+                 WHERE id = ANY($1::bigint[])
+                   AND user_id = $2
+                 FOR UPDATE`,
+                [customDesignIds, account.id]
+            );
+
+            for (const design of customResult.rows) {
+                customDesignMap.set(String(design.id), design);
+            }
+        }
 
         let total = 0;
 
         const orderItems = [];
-        const stockRequirements = new Map();
+        const productStockRequirements = new Map();
+        const customStockRequirements = new Map();
 
-        for (const item of products) {
-            const product = productMap.get(String(item.id));
+        for (const item of preparedItems) {
+            const quantity = item.quantity;
 
-            if (!product || !product.is_active) {
-                throw new OrderRequestError(
-                    "A selected product is unavailable."
-                );
-            }
+            if (item.type === "product") {
+                const product = productMap.get(String(item.id));
 
-            const quantity = Number(item.quantity);
-            const price = Number(product.price);
-            const availableSizes = product.sizes || [];
+                if (!product || !product.is_active) {
+                    throw new OrderRequestError(
+                        "A selected product is unavailable."
+                    );
+                }
 
-            if (availableSizes.length > 0) {
+                const availableSizes = product.sizes || [];
+
                 if (
-                    !item.size ||
-                    !availableSizes.includes(item.size)
+                    availableSizes.length > 0 &&
+                    (
+                        !item.size ||
+                        !availableSizes.includes(item.size)
+                    )
                 ) {
                     throw new OrderRequestError(
                         `Please select a valid size for ${product.name}.`
                     );
                 }
+
+                const requiredStock =
+                    (productStockRequirements.get(String(item.id)) || 0) +
+                    quantity;
+
+                productStockRequirements.set(
+                    String(item.id),
+                    requiredStock
+                );
+
+                const price = Number(product.price);
+
+                orderItems.push({
+                    productId: product.id,
+                    customDesignId: null,
+                    name: product.name,
+                    size: item.size,
+                    quantity,
+                    price
+                });
+
+                total += price * quantity;
+
+            } else {
+                const design = customDesignMap.get(String(item.id));
+
+                if (!design) {
+                    throw new OrderRequestError(
+                        "Custom design not found or does not belong to your account."
+                    );
+                }
+
+                if (design.status !== "Price Confirmed") {
+                    throw new OrderRequestError(
+                        "Your custom design has not been approved yet."
+                    );
+                }
+
+                const price = Number(design.quoted_price);
+                const availableStock = Number(design.stock_quantity);
+
+                if (
+                    !Number.isFinite(price) ||
+                    price <= 0
+                ) {
+                    throw new OrderRequestError(
+                        "Your custom design does not have a valid confirmed price."
+                    );
+                }
+
+                if (
+                    !Number.isSafeInteger(availableStock) ||
+                    availableStock <= 0
+                ) {
+                    throw new OrderRequestError(
+                        "Your custom design is currently out of stock."
+                    );
+                }
+
+                const designData =
+                    typeof design.design_data === "string"
+                        ? JSON.parse(design.design_data)
+                        : design.design_data;
+
+                const savedSize = designData?.size || null;
+
+                if (
+                    item.size &&
+                    savedSize &&
+                    item.size !== savedSize
+                ) {
+                    throw new OrderRequestError(
+                        "The custom design size does not match your saved design."
+                    );
+                }
+
+                const requiredStock =
+                    (customStockRequirements.get(String(item.id)) || 0) +
+                    quantity;
+
+                customStockRequirements.set(
+                    String(item.id),
+                    requiredStock
+                );
+
+                orderItems.push({
+                    productId: null,
+                    customDesignId: design.id,
+                    name: `Custom Design #${design.id}`,
+                    size: savedSize,
+                    quantity,
+                    price
+                });
+
+                total += price * quantity;
             }
-
-            const requiredStock =
-                (stockRequirements.get(String(item.id)) || 0) +
-                quantity;
-
-            stockRequirements.set(String(item.id), requiredStock);
-
-            orderItems.push({
-                id: product.id,
-                name: product.name,
-                size: item.size || null,
-                quantity,
-                price
-            });
-
-            total += price * quantity;
         }
 
-        for (const [id, required] of stockRequirements) {
+        for (const [id, required] of productStockRequirements) {
             const product = productMap.get(id);
 
             if (Number(product.stock_quantity) < required) {
@@ -863,7 +1078,21 @@ app.post("/api/orders", requireCustomer, async (req, res) => {
             }
         }
 
-        // Use 128 random bits to make order numbers much harder to guess.
+        for (const [id, required] of customStockRequirements) {
+            const design = customDesignMap.get(id);
+
+            if (Number(design.stock_quantity) < required) {
+                throw new OrderRequestError(
+                    `Custom Design #${id} does not have enough stock.`
+                );
+            }
+        }
+
+        if (!Number.isFinite(total) || total <= 0) {
+            throw new OrderRequestError(
+                "Invalid order total."
+            );
+        }
 
         const orderNumber =
             "OWO-" +
@@ -899,7 +1128,7 @@ app.post("/api/orders", requireCustomer, async (req, res) => {
                 orderNumber,
                 account.name,
                 account.email,
-                account.phone,
+                orderPhone,
                 customer.address.trim(),
                 customer.city.trim(),
                 customer.state.trim(),
@@ -917,15 +1146,17 @@ app.post("/api/orders", requireCustomer, async (req, res) => {
                 `INSERT INTO order_items (
                     order_id,
                     product_id,
+                    custom_design_id,
                     product_name,
                     product_size,
                     quantity,
                     unit_price
                 )
-                VALUES ($1,$2,$3,$4,$5,$6)`,
+                VALUES ($1,$2,$3,$4,$5,$6,$7)`,
                 [
                     savedOrder.id,
-                    item.id,
+                    item.productId,
+                    item.customDesignId,
                     item.name,
                     item.size,
                     item.quantity,
@@ -934,12 +1165,26 @@ app.post("/api/orders", requireCustomer, async (req, res) => {
             );
         }
 
-        // Reduce stock for COD orders.
-
-        for (const [id, required] of stockRequirements) {
+        for (const [id, required] of productStockRequirements) {
             await client.query(
                 `UPDATE products
                  SET stock_quantity = stock_quantity - $1
+                 WHERE id = $2`,
+                [required, id]
+            );
+        }
+
+        for (const [id, required] of customStockRequirements) {
+            await client.query(
+                `UPDATE custom_designs
+                 SET
+                    stock_quantity = stock_quantity - $1,
+                    status = CASE
+                        WHEN stock_quantity - $1 <= 0
+                        THEN 'Ordered'
+                        ELSE 'Price Confirmed'
+                    END,
+                    updated_at = NOW()
                  WHERE id = $2`,
                 [required, id]
             );
@@ -964,6 +1209,7 @@ app.post("/api/orders", requireCustomer, async (req, res) => {
                 createdAt: savedOrder.created_at
             }
         });
+
     } catch (error) {
         if (client) {
             try {
@@ -984,14 +1230,13 @@ app.post("/api/orders", requireCustomer, async (req, res) => {
         res.status(500).json({
             message: "Unable to create your order right now. Please try again."
         });
+
     } finally {
         if (client) {
             client.release();
         }
     }
 });
-
-
 // ===================================
 // CUSTOMER CANCEL ORDER
 // ONLY BEFORE SHIPPING
@@ -1093,8 +1338,6 @@ app.post("/api/orders/:id/cancel", requireCustomer, async (req, res) => {
                 description ? description.trim() : null
             ]
         );
-
-        // Restore COD stock exactly once.
 
         if (order.payment_method === "cod") {
             await client.query(
@@ -2227,8 +2470,6 @@ app.patch("/api/admin/orders/:id/status", async (req, res) => {
         client = await pool.connect();
         await client.query("BEGIN");
 
-        // Lock the order so two cancellation requests cannot restore stock twice.
-
         const orderResult = await client.query(
             `SELECT
                 id,
@@ -2251,8 +2492,6 @@ app.patch("/api/admin/orders/:id/status", async (req, res) => {
 
         const currentOrder = orderResult.rows[0];
 
-        // Do not allow changing an already cancelled order.
-
         if (currentOrder.order_status === "Cancelled") {
             await client.query("ROLLBACK");
 
@@ -2260,8 +2499,6 @@ app.patch("/api/admin/orders/:id/status", async (req, res) => {
                 message: "This order has already been cancelled."
             });
         }
-
-        // Admin can cancel only before shipping.
 
         if (
             status === "Cancelled" &&
@@ -2273,8 +2510,6 @@ app.patch("/api/admin/orders/:id/status", async (req, res) => {
                 message: "An order can only be cancelled before it is shipped."
             });
         }
-
-        // Restore COD stock only when changing an active order to Cancelled.
 
         if (
             status === "Cancelled" &&
@@ -2398,22 +2633,23 @@ app.use((error, req, res, next) => {
         return next(error);
     }
 
-    // CORS rejection
     if (error.message === "Origin not allowed by CORS.") {
         return res.status(403).json({
             message: "This website is not allowed to access the server."
         });
     }
 
-    // Request body too large
     if (error.type === "entity.too.large") {
         return res.status(413).json({
             message: "Request body is too large."
         });
     }
 
-    // Invalid JSON
-    if (error instanceof SyntaxError && error.status === 400 && "body" in error) {
+    if (
+        error instanceof SyntaxError &&
+        error.status === 400 &&
+        "body" in error
+    ) {
         return res.status(400).json({
             message: "Invalid JSON request."
         });
@@ -2434,6 +2670,9 @@ async function startServer() {
         await initializeCustomerDatabase();
         await initializeDeliveryDatabase();
 
+        await initializeCustomDesignDatabase();
+        await initializeCustomOrderItemsDatabase();
+
         app.listen(PORT, () => {
             console.log(
                 `OWO Backend running at http://localhost:${PORT}`
@@ -2441,6 +2680,7 @@ async function startServer() {
 
             console.log("OWO Order Tracking API is ready.");
             console.log("OWO Customer Account API is ready.");
+            console.log("OWO Custom Design API is ready.");
         });
     } catch (error) {
         console.error(

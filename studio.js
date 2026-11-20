@@ -1,11 +1,21 @@
 
 /* =====================================
    OWO CUSTOM STUDIO
+   Connected to PostgreSQL Backend
 ===================================== */
+
+const API_URL = "http://localhost:3000";
 
 const canvas = document.getElementById("garmentCanvas");
 const ctx = canvas.getContext("2d");
+// Force a clean white preview background
+canvas.style.backgroundColor = "#ffffff";
+canvas.style.backgroundImage = "none";
 
+if (canvas.parentElement) {
+    canvas.parentElement.style.backgroundColor = "#ffffff";
+    canvas.parentElement.style.backgroundImage = "none";
+}
 const previewMessage = document.getElementById("previewMessage");
 const logoUpload = document.getElementById("logoUpload");
 const logoSizeInput = document.getElementById("logoSize");
@@ -36,17 +46,146 @@ const state = {
     fit: "straight",
     colour: "#F5F3EE",
     size: "M",
+
     logo: null,
     logoData: null,
     logoX: 0.5,
     logoY: 0.42,
     logoWidth: 0.20,
+
     garmentImage: null,
     garmentRect: null,
+
     dragging: false,
     dragOffsetX: 0,
     dragOffsetY: 0
 };
+
+/* =====================================
+   MEASUREMENT FIELD DEFINITIONS
+===================================== */
+
+const upperMeasurementFields = [
+    {
+        name: "Shoulder",
+        key: "shoulder",
+        input: "shoulderMeasurement",
+        unit: "shoulderUnit"
+    },
+    {
+        name: "Chest",
+        key: "chest",
+        input: "chestMeasurement",
+        unit: "chestUnit"
+    },
+    {
+        name: "Waist",
+        key: "upperWaist",
+        input: "upperWaistMeasurement",
+        unit: "upperWaistUnit"
+    },
+    {
+        name: "Sleeve Length",
+        key: "sleeve",
+        input: "sleeveMeasurement",
+        unit: "sleeveUnit"
+    }
+];
+
+const pantsMeasurementFields = [
+    {
+        name: "Waist",
+        key: "pantsWaist",
+        input: "pantsWaistMeasurement",
+        unit: "pantsWaistUnit"
+    },
+    {
+        name: "Hip",
+        key: "hip",
+        input: "hipMeasurement",
+        unit: "hipUnit"
+    },
+    {
+        name: "Bottom Leg Opening Width",
+        key: "bottomLeg",
+        input: "bottomLegMeasurement",
+        unit: "bottomLegUnit"
+    }
+];
+
+/* =====================================
+   GET MEASUREMENTS
+===================================== */
+
+function getMeasurements() {
+    const fields = state.garment === "pants"
+        ? pantsMeasurementFields
+        : upperMeasurementFields;
+
+    const measurements = {};
+
+    fields.forEach(field => {
+        const input = document.getElementById(field.input);
+        const unit = document.getElementById(field.unit);
+
+        measurements[field.key] = {
+            value: input.value.trim(),
+            unit: unit.value
+        };
+    });
+
+    return measurements;
+}
+
+/* =====================================
+   VALIDATE MEASUREMENTS
+===================================== */
+
+function validateMeasurements() {
+    const measurements = getMeasurements();
+
+    const fields = state.garment === "pants"
+        ? pantsMeasurementFields
+        : upperMeasurementFields;
+
+    for (const field of fields) {
+        const measurement = measurements[field.key];
+        const value = Number(measurement.value);
+
+        if (
+            measurement.value === "" ||
+            !Number.isFinite(value) ||
+            value <= 0
+        ) {
+            alert(`Please enter a valid ${field.name} measurement.`);
+            return false;
+        }
+
+        if (!["cm", "inch"].includes(measurement.unit)) {
+            alert(`Please select a valid unit for ${field.name}.`);
+            return false;
+        }
+    }
+
+    return true;
+}
+
+/* =====================================
+   UPDATE MEASUREMENT SUMMARY
+===================================== */
+
+function updateMeasurementSummary() {
+    const measurements = getMeasurements();
+
+    const summary = Object.values(measurements).filter(item =>
+        item.value !== ""
+    ).length;
+
+    const total = state.garment === "pants" ? 3 : 4;
+
+    document.getElementById("summaryMeasurements").textContent =
+        `${summary}/${total} entered`;
+}
 
 /* =====================================
    LOAD GARMENT IMAGE
@@ -74,6 +213,7 @@ function loadGarment() {
 
     image.onerror = function () {
         state.garmentImage = null;
+
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
         previewMessage.textContent =
@@ -114,20 +254,16 @@ function renderPreview() {
 
     state.garmentRect = { x, y, width, height };
 
-    // Draw original white garment.
     ctx.globalCompositeOperation = "source-over";
     ctx.drawImage(image, x, y, width, height);
 
-    // Recolour the garment while retaining its fabric shading.
     ctx.globalCompositeOperation = "multiply";
     ctx.fillStyle = state.colour;
     ctx.fillRect(x, y, width, height);
 
-    // Keep the recolouring inside the transparent garment shape.
     ctx.globalCompositeOperation = "destination-in";
     ctx.drawImage(image, x, y, width, height);
 
-    // Draw the uploaded logo separately, so its colours stay unchanged.
     ctx.globalCompositeOperation = "source-over";
 
     if (state.logo) {
@@ -143,6 +279,7 @@ function getLogoBounds() {
     if (!state.logo) return null;
 
     const width = canvas.width * state.logoWidth;
+
     const height = width * (
         state.logo.naturalHeight / state.logo.naturalWidth
     );
@@ -188,17 +325,25 @@ document.querySelectorAll(".garment-option").forEach(button => {
 
         const isPants = state.garment === "pants";
 
-        document.getElementById("fitSection").hidden = !isPants;
-        document.getElementById("summaryFitRow").hidden = !isPants;
+        const fitSection = document.getElementById("fitSection");
+        const fitSummary = document.getElementById("summaryFitRow");
+
+        fitSection.style.display = isPants ? "" : "none";
+        fitSummary.style.display = isPants ? "" : "none";
+
+        document.getElementById("upperMeasurements").style.display =
+            isPants ? "none" : "block";
+
+        document.getElementById("pantsMeasurements").style.display =
+            isPants ? "block" : "none";
 
         document.getElementById("previewTitle").textContent =
-            state.garment === "tshirt"
-                ? "Classic T-Shirt"
-                : state.garment === "pants"
-                    ? "Custom Pants"
-                    : `Custom ${garmentNames[state.garment]}`;
+            isPants
+                ? "Custom Pants"
+                : `Custom ${garmentNames[state.garment]}`;
 
         updateSummary();
+        updateMeasurementSummary();
         loadGarment();
     });
 });
@@ -226,18 +371,15 @@ document.querySelectorAll(".fit-option").forEach(button => {
    COLOUR SELECTION
 ===================================== */
 
-document.querySelectorAll(".colour-option").forEach(button => {
+document.querySelectorAll(".colour-swatch").forEach(button => {
     button.addEventListener("click", () => {
         state.colour = button.dataset.colour;
 
-        document.querySelectorAll(".colour-option").forEach(option => {
+        document.querySelectorAll(".colour-swatch").forEach(option => {
             option.classList.remove("active");
         });
 
         button.classList.add("active");
-
-        document.getElementById("selectedColour").textContent =
-            colourNames[state.colour];
 
         updateSummary();
         renderPreview();
@@ -261,6 +403,56 @@ document.querySelectorAll(".size-option").forEach(button => {
         updateSummary();
     });
 });
+
+/* =====================================
+   MEASUREMENT INPUT EVENTS
+===================================== */
+
+[
+    ...upperMeasurementFields,
+    ...pantsMeasurementFields
+].forEach(field => {
+    const input = document.getElementById(field.input);
+    const unit = document.getElementById(field.unit);
+
+    if (input) {
+        input.addEventListener("input", updateMeasurementSummary);
+    }
+
+    if (unit) {
+        unit.addEventListener("change", updateMeasurementSummary);
+    }
+});
+
+/* =====================================
+   COMPRESS LOGO IMAGE
+===================================== */
+
+function compressLogo(image) {
+    const maxDimension = 400;
+
+    let width = image.naturalWidth;
+    let height = image.naturalHeight;
+
+    const scale = Math.min(
+        1,
+        maxDimension / Math.max(width, height)
+    );
+
+    width = Math.round(width * scale);
+    height = Math.round(height * scale);
+
+    const logoCanvas = document.createElement("canvas");
+
+    logoCanvas.width = width;
+    logoCanvas.height = height;
+
+    const logoContext = logoCanvas.getContext("2d");
+
+    logoContext.drawImage(image, 0, 0, width, height);
+
+    return logoCanvas.toDataURL("image/webp", 0.82);
+}
 
 /* =====================================
    UPLOAD LOGO
@@ -290,7 +482,17 @@ logoUpload.addEventListener("change", event => {
 
         image.onload = function () {
             state.logo = image;
-            state.logoData = e.target.result;
+
+            try {
+                state.logoData = compressLogo(image);
+            } catch (error) {
+                state.logo = null;
+                state.logoData = null;
+
+                alert("Could not process this logo. Please try another image.");
+                logoUpload.value = "";
+                return;
+            }
 
             state.logoX = 0.5;
             state.logoY = 0.42;
@@ -307,6 +509,10 @@ logoUpload.addEventListener("change", event => {
         };
 
         image.src = e.target.result;
+    };
+
+    reader.onerror = function () {
+        alert("Could not read this image. Please try again.");
     };
 
     reader.readAsDataURL(file);
@@ -378,8 +584,11 @@ canvas.addEventListener("pointerdown", event => {
 
     state.dragging = true;
 
-    state.dragOffsetX = pointer.x - (canvas.width * state.logoX);
-    state.dragOffsetY = pointer.y - (canvas.height * state.logoY);
+    state.dragOffsetX =
+        pointer.x - canvas.width * state.logoX;
+
+    state.dragOffsetY =
+        pointer.y - canvas.height * state.logoY;
 
     canvas.setPointerCapture(event.pointerId);
     canvas.style.cursor = "grabbing";
@@ -409,12 +618,18 @@ canvas.addEventListener("pointermove", event => {
 
     state.logoX = Math.max(
         0.05,
-        Math.min(0.95, (pointer.x - state.dragOffsetX) / canvas.width)
+        Math.min(
+            0.95,
+            (pointer.x - state.dragOffsetX) / canvas.width
+        )
     );
 
     state.logoY = Math.max(
         0.05,
-        Math.min(0.95, (pointer.y - state.dragOffsetY) / canvas.height)
+        Math.min(
+            0.95,
+            (pointer.y - state.dragOffsetY) / canvas.height
+        )
     );
 
     renderPreview();
@@ -422,7 +637,7 @@ canvas.addEventListener("pointermove", event => {
 
 function stopDragging() {
     state.dragging = false;
-    canvas.style.cursor = "grab";
+    canvas.style.cursor = state.logo ? "grab" : "default";
 }
 
 canvas.addEventListener("pointerup", stopDragging);
@@ -440,27 +655,139 @@ function updateSummary() {
     document.getElementById("summaryColour").textContent =
         colourNames[state.colour];
 
-    document.getElementById("summarySize").textContent = state.size;
+    document.getElementById("summarySize").textContent =
+        state.size;
 
     document.getElementById("summaryLogo").textContent =
         state.logo ? "Uploaded" : "Not added";
 
     document.getElementById("summaryFit").textContent =
-        state.fit === "straight" ? "Straight Fit" : "Bootcut Fit";
+        state.fit === "straight"
+            ? "Straight Fit"
+            : "Bootcut Fit";
 }
 
 /* =====================================
-   ADD CUSTOM ITEM TO CART
+   CREATE COMPRESSED PREVIEW
 ===================================== */
 
-document.getElementById("addToCart").addEventListener("click", () => {
+
+function createDesignPreview() {
+
+    // Create a separate canvas for the preview
+    const previewCanvas = document.createElement("canvas");
+
+    previewCanvas.width = canvas.width;
+    previewCanvas.height = canvas.height;
+
+    const previewContext = previewCanvas.getContext("2d");
+
+    // Add a clean white background
+    previewContext.fillStyle = "#ffffff";
+    previewContext.fillRect(
+        0,
+        0,
+        previewCanvas.width,
+        previewCanvas.height
+    );
+
+    // Draw the original custom design over the white background
+    previewContext.drawImage(
+        canvas,
+        0,
+        0,
+        previewCanvas.width,
+        previewCanvas.height
+    );
+
+    // Save the preview
+    return previewCanvas.toDataURL("image/jpeg", 0.85);
+}
+
+/* =====================================
+   SAVE DESIGN TO BACKEND
+===================================== */
+
+async function saveDesignToBackend(customization) {
+    const token = localStorage.getItem("owoCustomerToken");
+
+    if (!token) {
+        alert("Please log in to your OWO account before saving a custom design.");
+        return null;
+    }
+
+    const payload = {
+        size: state.size,
+
+        customization: customization
+    };
+
+    const requestBody = JSON.stringify(payload);
+
+    // Backend accepts a maximum of 700,000 bytes.
+    const requestSize = new Blob([requestBody]).size;
+
+    if (requestSize > 680000) {
+        alert(
+            "Your design data is too large. Please remove the logo or upload a smaller image."
+        );
+        return null;
+    }
+
+    const response = await fetch(`${API_URL}/api/custom-designs`, {
+        method: "POST",
+
+        headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`
+        },
+
+        body: requestBody
+    });
+
+    let result;
+
+    try {
+        result = await response.json();
+    } catch {
+        throw new Error("The server returned an invalid response.");
+    }
+
+    if (response.status === 401 || response.status === 403) {
+        alert("Your login session has expired. Please log in again.");
+        return null;
+    }
+
+    if (!response.ok) {
+        throw new Error(
+            result.message || "Could not save your custom design."
+        );
+    }
+
+    return result;
+}
+
+/* =====================================
+   ADD CUSTOM DESIGN TO CART
+===================================== */
+
+document.getElementById("addToCart").addEventListener("click", async () => {
+    const cartButton = document.getElementById("addToCart");
+    const cartMessage = document.getElementById("cartMessage");
+
     if (!state.garmentImage) {
         alert("The garment image has not loaded. Please check your image files.");
         return;
     }
 
-    const cartButton = document.getElementById("addToCart");
-    const cartMessage = document.getElementById("cartMessage");
+    if (!validateMeasurements()) {
+        return;
+    }
+
+    if (!localStorage.getItem("owoCustomerToken")) {
+        alert("Please log in to your OWO account before saving a custom design.");
+        return;
+    }
 
     let cart = [];
 
@@ -474,46 +801,99 @@ document.getElementById("addToCart").addEventListener("click", () => {
         cart = [];
     }
 
-    const itemName =
-        `Custom ${garmentNames[state.garment]}`;
+    const customization = {
+        garment: state.garment,
 
-    const customItem = {
-        id: "custom-" + Date.now(),
-        name: itemName,
-        price: 0,
-        quantity: 1,
-        size: state.size,
-        image: canvas.toDataURL("image/png"),
-        isCustom: true,
+        colour: colourNames[state.colour],
+        colourCode: state.colour,
 
-        customization: {
-            garment: state.garment,
-            colour: colourNames[state.colour],
-            colourCode: state.colour,
-            fit: state.garment === "pants" ? state.fit : null,
-            logo: state.logoData,
-            logoPosition: {
-                x: state.logoX,
-                y: state.logoY
-            },
-            logoWidth: state.logoWidth,
-            side: "front"
-        }
+        fit: state.garment === "pants"
+            ? state.fit
+            : null,
+
+        measurements: getMeasurements(),
+
+        logo: state.logoData,
+
+        logoPosition: {
+            x: state.logoX,
+            y: state.logoY
+        },
+
+        logoWidth: state.logoWidth,
+
+        side: "front"
     };
 
-    cart.push(customItem);
+    cartButton.disabled = true;
+    cartButton.textContent = "SAVING DESIGN...";
+
+    cartMessage.textContent = "Saving your design to OWO...";
 
     try {
-        localStorage.setItem("owoCart", JSON.stringify(cart));
+        // First save the design in PostgreSQL.
+        const result = await saveDesignToBackend(customization);
+
+        if (!result || !result.design || !result.design.id) {
+            cartButton.disabled = false;
+            cartButton.textContent = "ADD TO CART";
+
+            cartMessage.textContent = "";
+            return;
+        }
+
+        const design = result.design;
+
+        // Add the successfully saved design to the local cart.
+        const customItem = {
+            id: "custom-" + design.id,
+
+            customDesignId: design.id,
+
+            name: `Custom ${garmentNames[state.garment]}`,
+
+            // Admin will confirm the price later.
+            price: null,
+            priceStatus: "pending",
+
+            quantity: 1,
+            size: state.size,
+
+            image: createDesignPreview(),
+
+            isCustom: true,
+
+            stockVerified: false,
+            stockStatus: "pending",
+
+            customization: customization
+        };
+
+        cart.push(customItem);
+
+        try {
+            localStorage.setItem("owoCart", JSON.stringify(cart));
+        } catch (error) {
+            throw new Error(
+                "Your design was saved on the server, but the browser could not save it to the cart. Please contact OWO support before submitting it again."
+            );
+        }
+
+        cartMessage.textContent =
+            "Design saved successfully! Waiting for OWO Admin to confirm price and stock.";
+
+        cartButton.textContent = "DESIGN SAVED ✓";
+
     } catch (error) {
-        alert("Could not save this design. The image may be too large. Try a smaller logo.");
-        return;
+        console.error("Custom design error:", error);
+
+        cartMessage.textContent = "";
+
+        alert(error.message || "Something went wrong while saving your design.");
+
+        cartButton.disabled = false;
+        cartButton.textContent = "ADD TO CART";
     }
-
-    cartMessage.textContent =
-        "Your customized item has been added to the cart.";
-
-    cartButton.textContent = "ADDED TO CART ✓";
 });
 
 /* =====================================
@@ -521,4 +901,5 @@ document.getElementById("addToCart").addEventListener("click", () => {
 ===================================== */
 
 updateSummary();
+updateMeasurementSummary();
 loadGarment();

@@ -1,0 +1,1109 @@
+"use client";
+
+import \* as React from "react";
+import { createPortal } from "react-dom";
+
+export interface SkateDeck {
+&#x20; id: string;
+&#x20; /\*\* Accessible name, caption and detail title, e.g. \`Sunset Bands 8.25"\`. \*/
+&#x20; name: string;
+&#x20; /\*\* Collection line shown with the price under the rail and above the name in the detail view. \*/
+&#x20; series?: string;
+&#x20; /\*\* Deck width such as \`8.25"\`. \*/
+&#x20; width?: string;
+&#x20; description?: string;
+&#x20; /\*\* Graphic-side photo: a transparent cut-out of one deck, nose up, filling a tall canvas (0.238 wide per 1 high, e.g. 238 x 1000). \*/
+&#x20; image: string;
+&#x20; /\*\* Grip-side photo on the same canvas. Optional: without it the component draws grip tape over the deck outline. \*/
+&#x20; gripImage?: string;
+&#x20; /\*\* Short tag such as a price, hung from the hook. \*/
+&#x20; tag?: string;
+&#x20; /\*\* Short facts shown as chips in the detail view (wheelbase, plies, concave …). \*/
+&#x20; details?: string[];
+}
+
+export interface SkateDeckRailLabels {
+&#x20; graphic: string;
+&#x20; grip: string;
+&#x20; close: string;
+&#x20; open: string;
+}
+
+export interface SkateDeckRailProps extends React.ComponentProps<"section"> {
+&#x20; items: SkateDeck[];
+&#x20; eyebrow?: string;
+&#x20; heading?: string;
+&#x20; /\*\* Shown under the rail while no deck faces the front. \*/
+&#x20; caption?: string;
+&#x20; /\*\* Call to action under the caption. \*/
+&#x20; action?: React.ReactNode;
+&#x20; /\*\* Rendered under the specs in the detail view, e.g. an "Add to cart" button. \*/
+&#x20; detailAction?: (deck: SkateDeck, index: number) => React.ReactNode;
+&#x20; /\*\* Turns the decks to the front one by one until the visitor interacts. \*/
+&#x20; autoplay?: boolean;
+&#x20; /\*\* Milliseconds each deck faces the front during autoplay. \*/
+&#x20; interval?: number;
+&#x20; /\*\* Controlled index of the deck facing the front; \`null\` for none. Leave undefined to let the rail manage it. \*/
+&#x20; active?: number | null;
+&#x20; onActiveChange?: (index: number | null) => void;
+&#x20; onOpenChange?: (index: number | null) => void;
+&#x20; labels?: SkateDeckRailLabels;
+}
+
+const DECK_ASPECT = 0.238;
+const PERSPECTIVE = 900;
+const LIFT_Z = 40;
+const LIFT_SCALE = 0.05;
+const GAP = 0.06;
+const FRONT_EXTRA = 0.36;
+const MAX_H = 380;
+const MIN_RAIL_H = 180;
+const CAROUSEL_MAX_H = 430;
+const EDGE = 24;
+const RAIL_TOP = 14;
+const RAIL_Y = 0.022;
+const HOOK_LEN = 0.085;
+const HOLE_Y = 0.034;
+const FOOT_PX = 36;
+const FOOT = 0.11;
+const STAGE_K = 1 + RAIL_Y + HOOK_LEN - HOLE_Y + FOOT;
+const SWING_K = 26;
+const SWING_DAMP = 2.3;
+const SWING_LIMIT = 12;
+const COUPLE = 0.035;
+const HANG_SHARE = 0.3;
+const RAD = Math.PI / 180;
+const DEFAULT_LABELS: SkateDeckRailLabels = { graphic: "Graphic", grip: "Grip", close: "Close", open: "Open" };
+
+const DECK_PATH = "M3,150 C3,46 53,4 119,4 C185,4 235,46 235,150 L235,850 C235,954 185,996 119,996 C53,996 3,954 3,850 Z";
+const FALLBACK_MASK = \`url("data:image/svg+xml,${encodeURIComponent(\`\<svg xmlns='[http://www.w3.org/2000/svg](http://www.w3.org/2000/svg)' viewBox='0 0 238 1000' preserveAspectRatio='none'>\<path d='${DECK_PATH}'/>\</svg>\`)}")\`;
+const CONCAVE = "linear-gradient(90deg, color-mix(in oklab, black 46%, transparent) 0%, transparent 15%, color-mix(in oklab, white 13%, transparent) 50%, transparent 85%, color-mix(in oklab, black 46%, transparent) 100%), linear-gradient(to bottom, color-mix(in oklab, white 14%, transparent) 0%, transparent 9%, transparent 91%, color-mix(in oklab, white 10%, transparent) 100%)";
+const RAIL_GRADIENT = "linear-gradient(to bottom, color-mix(in oklab, var(--rail-ink) 56%, white) 0%, color-mix(in oklab, var(--rail-ink) 84%, white) 17%, var(--rail-ink) 46%, color-mix(in oklab, var(--rail-ink) 72%, black) 80%, color-mix(in oklab, var(--rail-ink) 50%, black) 100%)";
+const REST_SHADE = "linear-gradient(90deg, color-mix(in oklab, black 34%, transparent), color-mix(in oklab, black 12%, transparent) 45%, color-mix(in oklab, black 4%, transparent))";
+const BRACKET_GRADIENT = "linear-gradient(to right, color-mix(in oklab, var(--rail-ink) 70%, white), var(--rail-ink) 55%, color-mix(in oklab, var(--rail-ink) 60%, black))";
+const PLY = "linear-gradient(to right, color-mix(in oklab, white 52%, var(--color-muted-foreground)), color-mix(in oklab, white 82%, var(--color-muted-foreground)) 50%, color-mix(in oklab, white 48%, var(--color-muted-foreground)))";
+const BOLTS = [0.174, 0.229, 0.748, 0.804].flatMap((y) => [0.402, 0.598].map((x) => [x, y]));
+const GRIP_WINDOW = { top: 84.5, side: 33, bottom: 7.5 };
+
+function clamp(value: number, min: number, max: number) {
+&#x20; return Math.max(min, Math.min(max, value));
+}
+
+function restAngle(i: number) {
+&#x20; return -8 - ((i \* 5 + 3) % 7);
+}
+
+function maskStyle(mask: string, fallback: boolean): React.CSSProperties {
+&#x20; const value = \`${mask} center / ${fallback ? "100% 100%" : "contain"} no-repeat\`;
+&#x20; return { WebkitMask: value, mask: value };
+}
+
+function tagScale(h: number) {
+&#x20; return clamp(h / 300, 0.8, 1);
+}
+
+function railThickness(h: number) {
+&#x20; return Math.max(8, Math.round(h \* 0.032));
+}
+
+function stageGeometry(h: number) {
+&#x20; const railY = Math.round(RAIL_TOP + RAIL_Y \* h);
+&#x20; const top = railY + (HOOK_LEN - HOLE_Y) \* h;
+&#x20; return { railY, railT: railThickness(h), top, height: Math.round(top + h + FOOT_PX + FOOT \* h) };
+}
+
+function hookGeometry(h: number) {
+&#x20; const r = railThickness(h) / 2;
+&#x20; const t = Math.max(1.7, h \* 0.0078);
+&#x20; const rc = r \* 0.95 + t \* 0.6;
+&#x20; const lift = r \* 0.25;
+&#x20; const length = HOOK_LEN \* h;
+&#x20; const pad = t + 3;
+&#x20; const cx = pad + t / 2;
+&#x20; const cy = r + rc + pad;
+&#x20; const width = cx + 2 \* rc + pad + t;
+&#x20; const height = cy + length + pad;
+&#x20; const f = (n: number) => n.toFixed(2);
+&#x20; return {
+&#x20;   t, rc, cx, cy, width, height,
+&#x20;   left: -cx,
+&#x20;   top: HOLE_Y \* h - (cy + length),
+&#x20;   pivotX: rc,
+&#x20;   pivotY: -(HOOK_LEN - HOLE_Y) \* h - lift,
+&#x20;   shank: \`M${f(cx)},${f(cy + length)} L${f(cx)},${f(cy - lift)}\`,
+&#x20;   curl: \`M${f(cx)},${f(cy - lift)} A${f(rc)},${f(rc)} 0 0 1 ${f(cx + 2 \* rc)},${f(cy - lift)} L${f(cx + 2 \* rc)},${f(cy + r \* 0.3)}\`,
+&#x20;   curlX: cx + rc,
+&#x20;   curlY: cy - lift,
+&#x20; };
+}
+
+function Defs({ uid, h }: { uid: string; h: number }) {
+&#x20; const g = hookGeometry(h);
+&#x20; const inner = Math.max(0, (g.rc - g.t / 2) / (g.rc + g.t / 2));
+&#x20; const span = 1 - inner;
+&#x20; const metal = (amount: number, toward: "white" | "black") => \`color-mix(in oklab, var(--color-muted-foreground) ${amount}%, ${toward})\`;
+&#x20; return (
+&#x20;   \<svg aria-hidden="true" width="0" height="0" className="absolute" focusable="false">
+&#x20;     \<defs>
+&#x20;       \<linearGradient id={\`${uid}-shank\`} gradientUnits="userSpaceOnUse" x1={g.cx - g.t / 2} x2={g.cx + g.t / 2} y1="0" y2="0">
+&#x20;         \<stop offset="0" stopColor={metal(72, "black")} />
+&#x20;         \<stop offset="0.3" stopColor={metal(30, "white")} />
+&#x20;         \<stop offset="0.45" stopColor="white" />
+&#x20;         \<stop offset="0.74" stopColor={metal(88, "black")} />
+&#x20;         \<stop offset="1" stopColor={metal(50, "white")} />
+&#x20;       \</linearGradient>
+&#x20;       \<radialGradient id={\`${uid}-curl\`} gradientUnits="userSpaceOnUse" cx={g.curlX} cy={g.curlY} r={g.rc + g.t / 2}>
+&#x20;         \<stop offset={inner} stopColor={metal(70, "black")} />
+&#x20;         \<stop offset={inner + span \* 0.4} stopColor="white" />
+&#x20;         \<stop offset={inner + span \* 0.72} stopColor={metal(85, "black")} />
+&#x20;         \<stop offset="1" stopColor={metal(55, "white")} />
+&#x20;       \</radialGradient>
+&#x20;       \<filter id={\`${uid}-grit\`} x="0" y="0" width="100%" height="100%" colorInterpolationFilters="sRGB">
+&#x20;         \<feTurbulence type="fractalNoise" baseFrequency="0.92" numOctaves="2" seed="11" stitchTiles="stitch" />
+&#x20;         \<feColorMatrix type="saturate" values="0" />
+&#x20;         \<feComponentTransfer>
+&#x20;           \<feFuncA type="discrete" tableValues="0 0 0 0.3 0.65 1" />
+&#x20;         \</feComponentTransfer>
+&#x20;       \</filter>
+&#x20;       \<filter id={\`${uid}-powder\`} x="0" y="0" width="100%" height="100%" colorInterpolationFilters="sRGB">
+&#x20;         \<feTurbulence type="fractalNoise" baseFrequency="1.4" numOctaves="1" seed="4" stitchTiles="stitch" />
+&#x20;         \<feColorMatrix type="saturate" values="0" />
+&#x20;       \</filter>
+&#x20;     \</defs>
+&#x20;   \</svg>
+&#x20; );
+}
+
+function Hook({ uid, h }: { uid: string; h: number }) {
+&#x20; const g = hookGeometry(h);
+&#x20; return (
+&#x20;   \<svg aria-hidden="true" data-hook width={g.width} height={g.height} viewBox={\`0 0 ${g.width.toFixed(2)} ${g.height.toFixed(2)}\`} className="pointer-events-none absolute overflow-visible" style={{ left: \`calc(50% + ${g.left.toFixed(2)}px)\`, top: g.top }}>
+&#x20;     \<g fill="none" strokeLinecap="round" stroke="black" strokeOpacity="0.3" strokeWidth={g.t + 0.6} transform="translate(0.9 1.3)">
+&#x20;       \<path d={g.shank} />
+&#x20;       \<path d={g.curl} />
+&#x20;     \</g>
+&#x20;     \<path d={g.shank} fill="none" stroke={\`url(#${uid}-shank)\`} strokeWidth={g.t} strokeLinecap="round" />
+&#x20;     \<path d={g.curl} fill="none" stroke={\`url(#${uid}-curl)\`} strokeWidth={g.t} strokeLinecap="round" />
+&#x20;     \<path d={g.shank} fill="none" stroke="white" strokeOpacity="0.6" strokeWidth={g.t \* 0.26} strokeLinecap="round" transform={\`translate(${(-g.t \* 0.16).toFixed(2)} 0)\`} />
+&#x20;   \</svg>
+&#x20; );
+}
+
+function FallbackArt({ tone }: { tone: number }) {
+&#x20; const ink = \`var(--color-chart-${(tone % 5) + 1})\`;
+&#x20; return (
+&#x20;   \<span
+&#x20;     aria-hidden="true"
+&#x20;     data-fallback
+&#x20;     className="absolute inset-0"
+&#x20;     style={{
+&#x20;       ...maskStyle(FALLBACK_MASK, true),
+&#x20;       background: \`radial-gradient(circle at 50% 22%, color-mix(in oklab, white 85%, ${ink}) 0 7%, transparent 7.4%), repeating-linear-gradient(to bottom, color-mix(in oklab, ${ink} 82%, var(--color-card)) 0 9%, color-mix(in oklab, ${ink} 62%, black) 9% 10.5%), ${CONCAVE}\`,
+&#x20;     }}
+&#x20;   />
+&#x20; );
+}
+
+function Hole({ h }: { h: number }) {
+&#x20; const size = Math.max(4, h \* 0.022);
+&#x20; return (
+&#x20;   \<span
+&#x20;     aria-hidden="true"
+&#x20;     className="absolute left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-black/80"
+&#x20;     style={{ top: \`${HOLE_Y \* 100}%\`, width: size, height: size, boxShadow: "0 1px 0 color-mix(in oklab, white 35%, transparent), inset 0 1px 1px color-mix(in oklab, black 70%, transparent)" }}
+&#x20;   />
+&#x20; );
+}
+
+type Sim = {
+&#x20; x: number[]; vx: number[]; tx: number[];
+&#x20; turn: number[]; vturn: number[]; tturn: number[];
+&#x20; swing: number[]; vswing: number[];
+&#x20; tag: number[]; vtag: number[];
+&#x20; frameX: number[]; frameV: number[]; acc: number[];
+&#x20; drag: number; grab: number; free: number; last: number; raf: number;
+};
+
+function emptySim(): Sim {
+&#x20; return { x: [], vx: [], tx: [], turn: [], vturn: [], tturn: [], swing: [], vswing: [], tag: [], vtag: [], frameX: [], frameV: [], acc: [], drag: -1, grab: 0, free: 0, last: 0, raf: 0 };
+}
+
+function footprint(h: number, e: number) {
+&#x20; return h \* DECK_ASPECT \* (1 + FRONT_EXTRA \* clamp(e, 0, 1));
+}
+
+function progress(turn: number, i: number) {
+&#x20; return clamp(1 - turn / restAngle(i), 0, 1.12);
+}
+
+export function SkateDeckRail({
+&#x20; items,
+&#x20; eyebrow,
+&#x20; heading,
+&#x20; caption,
+&#x20; action,
+&#x20; detailAction,
+&#x20; autoplay = false,
+&#x20; interval = 2600,
+&#x20; active: activeProp,
+&#x20; onActiveChange,
+&#x20; onOpenChange,
+&#x20; labels = DEFAULT_LABELS,
+&#x20; className,
+&#x20; ...rest
+}: SkateDeckRailProps) {
+&#x20; const uid = React.useId().replace(/[^a-zA-Z0-9\_-]/g, "");
+&#x20; const count = items.length;
+&#x20; const stageRef = React.useRef(null as HTMLDivElement | null);
+&#x20; const slots = React.useRef([] as (HTMLButtonElement | null)[]);
+&#x20; const hangs = React.useRef([] as (HTMLSpanElement | null)[]);
+&#x20; const swings = React.useRef([] as (HTMLSpanElement | null)[]);
+&#x20; const turns = React.useRef([] as (HTMLSpanElement | null)[]);
+&#x20; const shades = React.useRef([] as (HTMLSpanElement | null)[]);
+&#x20; const glints = React.useRef([] as (HTMLSpanElement | null)[]);
+&#x20; const nears = React.useRef([] as (HTMLSpanElement | null)[]);
+&#x20; const fars = React.useRef([] as (HTMLSpanElement | null)[]);
+&#x20; const tags = React.useRef([] as (HTMLSpanElement | null)[]);
+&#x20; const sim = React.useRef(emptySim());
+&#x20; const [size, setSize] = React.useState({ width: 0, h: 300, carousel: false });
+&#x20; const [innerActive, setInnerActive] = React.useState(null as number | null);
+&#x20; const controlled = activeProp !== undefined;
+&#x20; const wanted = controlled ? activeProp : innerActive;
+&#x20; const active = wanted !== null && wanted !== undefined && wanted >= 0 && wanted < count ? wanted : null;
+&#x20; const [focusIndex, setFocusIndex] = React.useState(0);
+&#x20; const [openIndex, setOpenIndex] = React.useState(null as number | null);
+&#x20; const [reduced, setReduced] = React.useState(false);
+&#x20; const [playing, setPlaying] = React.useState(autoplay);
+&#x20; const [lifted, setLifted] = React.useState(null as number | null);
+&#x20; const [failed, setFailed] = React.useState({} as { [id: string]: boolean });
+&#x20; const returnFocus = React.useRef(null as number | null);
+&#x20; const pendingOpen = React.useRef(-1);
+&#x20; const pointer = React.useRef({ id: -1, index: -1, x: 0, y: 0, moved: false, kind: "", swipe: 0, lastX: 0, lastT: 0, v: 0 });
+&#x20; const live = React.useRef({ active: null as number | null, requested: null as number | null | undefined, size, reduced, count, openIndex: null as number | null, carouselIndex: 0, controlled, onActiveChange, onOpenChange });
+&#x20; live.current = { ...live.current, active, size, reduced, count, openIndex, controlled, onActiveChange, onOpenChange };
+
+&#x20; const carouselIndex = size.carousel ? (active ?? live.current.carouselIndex) : null;
+&#x20; const geo = stageGeometry(size.h);
+&#x20; const w = size.h \* DECK_ASPECT;
+
+&#x20; React.useEffect(() => {
+&#x20;   const media = window\.matchMedia("(prefers-reduced-motion: reduce)");
+&#x20;   const update = () => setReduced(media.matches);
+&#x20;   update();
+&#x20;   media.addEventListener("change", update);
+&#x20;   return () => media.removeEventListener("change", update);
+&#x20; }, []);
+
+&#x20; React.useEffect(() => { setPlaying(autoplay); }, [autoplay]);
+
+&#x20; React.useLayoutEffect(() => {
+&#x20;   const stage = stageRef.current;
+&#x20;   const section = stage?.parentElement;
+&#x20;   if (!stage || !section) return;
+&#x20;   const measure = () => {
+&#x20;     const width = stage.clientWidth;
+&#x20;     if (!width) return;
+&#x20;     const chrome = section.getBoundingClientRect().height - stage.getBoundingClientRect().height;
+&#x20;     const byHeight = (window\.innerHeight - chrome - 12 - RAIL_TOP - FOOT_PX) / STAGE_K;
+&#x20;     const fit = (width - 2 \* EDGE) / (Math.max(1, count) \* (DECK_ASPECT + GAP) + FRONT_EXTRA \* DECK_ASPECT);
+&#x20;     const carousel = fit < MIN_RAIL_H;
+&#x20;     const raw = carousel ? Math.min(CAROUSEL_MAX_H, width \* 0.92, byHeight) : Math.min(MAX_H, fit, byHeight);
+&#x20;     const h = Math.round(Math.max(150, raw));
+&#x20;     setSize((old) => (Math.abs(old.width - width) < 0.5 && old.carousel === carousel && Math.abs(old.h - h) < 1 ? old : { width, h, carousel }));
+&#x20;   };
+&#x20;   measure();
+&#x20;   const observer = new ResizeObserver(() => measure());
+&#x20;   observer.observe(stage);
+&#x20;   observer.observe(section);
+&#x20;   window\.addEventListener("resize", measure);
+&#x20;   return () => { observer.disconnect(); window\.removeEventListener("resize", measure); };
+&#x20; }, [count]);
+
+&#x20; const targets = React.useCallback((h: number, width: number, carousel: boolean, front: number | null, centre: number) => {
+&#x20;   const deckW = h \* DECK_ASPECT;
+&#x20;   const feet = items.map((\_, i) => footprint(h, i === front ? 1 : 0));
+&#x20;   if (carousel) {
+&#x20;     const gap = GAP \* h \* 1.5;
+&#x20;     const c = clamp(centre, 0, Math.max(0, feet.length - 1));
+&#x20;     const xs = feet.map(() => 0);
+&#x20;     xs[c] = width / 2;
+&#x20;     for (let i = c + 1; i < feet.length; i++) xs[i] = (xs[i - 1] ?? 0) + ((feet[i - 1] ?? 0) + (feet[i] ?? 0)) / 2 + gap;
+&#x20;     for (let i = c - 1; i >= 0; i--) xs[i] = (xs[i + 1] ?? 0) - ((feet[i + 1] ?? 0) + (feet[i] ?? 0)) / 2 - gap;
+&#x20;     // keep the wall full: the track never leaves an empty stretch at either end
+&#x20;     const left = (xs[0] ?? 0) - (feet[0] ?? 0) / 2;
+&#x20;     const right = (xs[feet.length - 1] ?? 0) + (feet[feet.length - 1] ?? 0) / 2;
+&#x20;     const shift = right - left <= width - 2 \* EDGE ? (width - left - right) / 2 : left > EDGE ? EDGE - left : right < width - EDGE ? width - EDGE - right : 0;
+&#x20;     return xs.map((x) => x + shift);
+&#x20;   }
+&#x20;   const n = feet.length;
+&#x20;   const restGap = clamp((width - 2 \* EDGE - n \* deckW - FRONT_EXTRA \* deckW) / Math.max(1, n - 1), GAP \* h, deckW \* 0.8);
+&#x20;   const total = feet.reduce((sum, f) => sum + f, 0) + restGap \* Math.max(0, n - 1);
+&#x20;   let cursor = (width - total) / 2;
+&#x20;   return feet.map((f) => { const x = cursor + f / 2; cursor += f + restGap; return x; });
+&#x20; }, [items]);
+
+&#x20; const paint = React.useCallback((i: number) => {
+&#x20;   const s = sim.current;
+&#x20;   const { h } = live.current.size;
+&#x20;   const deckW = h \* DECK_ASPECT;
+&#x20;   const slot = slots.current[i];
+&#x20;   if (!slot) return;
+&#x20;   const angle = s.turn[i] ?? restAngle(i);
+&#x20;   const e = progress(angle, i);
+&#x20;   const lift = Math.min(1, e);
+&#x20;   const theta = s.swing[i] ?? 0;
+&#x20;   slot.style.transform = \`translate3d(${((s.x[i] ?? 0) - deckW / 2).toFixed(2)}px,0,0)\`;
+&#x20;   const hang = hangs.current[i];
+&#x20;   if (hang) hang.style.transform = \`rotate(${(theta \* HANG_SHARE).toFixed(3)}deg)\`;
+&#x20;   const sw = swings.current[i];
+&#x20;   if (sw) sw\.style.transform = \`rotate(${(theta \* (1 - HANG_SHARE)).toFixed(3)}deg)\`;
+&#x20;   const tu = turns.current[i];
+&#x20;   if (tu) tu.style.transform = \`perspective(${PERSPECTIVE}px) rotateY(${angle.toFixed(2)}deg) translateZ(${(LIFT_Z \* lift).toFixed(2)}px) scale(${(1 + LIFT_SCALE \* e).toFixed(4)})\`;
+&#x20;   const shade = shades.current[i];
+&#x20;   if (shade) shade.style.opacity = (1 - lift).toFixed(3);
+&#x20;   const glint = glints.current[i];
+&#x20;   if (glint) {
+&#x20;     glint.style.transform = \`translate3d(${(-140 + 290 \* lift).toFixed(1)}%,0,0) skewX(-14deg)\`;
+&#x20;     glint.style.opacity = (Math.sin(Math.PI \* clamp(lift, 0, 1)) \* 0.95).toFixed(3);
+&#x20;   }
+&#x20;   const near = nears.current[i];
+&#x20;   if (near) {
+&#x20;     near.style.opacity = (1 - lift).toFixed(3);
+&#x20;     near.style.transform = \`translate3d(${(deckW \* 0.07).toFixed(1)}px, ${(h \* 0.012).toFixed(1)}px, 0)\`;
+&#x20;   }
+&#x20;   const far = fars.current[i];
+&#x20;   if (far) {
+&#x20;     far.style.opacity = lift.toFixed(3);
+&#x20;     far.style.transform = \`translate3d(${(deckW \* (0.07 + 0.2 \* lift)).toFixed(1)}px, ${(h \* (0.012 + 0.045 \* lift)).toFixed(1)}px, 0) scale(${(1 + 0.05 \* lift).toFixed(3)})\`;
+&#x20;   }
+&#x20;   const tag = tags.current[i];
+&#x20;   if (tag) tag.style.transform = \`rotate(${(-9 + (s.tag[i] ?? 0)).toFixed(2)}deg) scale(${tagScale(h).toFixed(3)})\`;
+&#x20; }, []);
+
+&#x20; const step = React.useCallback((now: number) => {
+&#x20;   const s = sim.current;
+&#x20;   const n = live.current.count;
+&#x20;   // slow frames keep wall-clock time: up to 100 ms per frame, integrated in sub-steps of at most \~17 ms
+&#x20;   const dt = s.last ? Math.min(0.1, (now - s.last) / 1000) : 1 / 60;
+&#x20;   s.last = now;
+&#x20;   const { h, width, carousel } = live.current.size;
+&#x20;   const deckW = h \* DECK_ASPECT;
+&#x20;   const tail = h \* (1 - HOLE_Y) + HOOK_LEN \* h \* HANG_SHARE;
+&#x20;   const spacing = (i: number) => (footprint(h, progress(s.turn[i] ?? 0, i)) + footprint(h, progress(s.turn[i + 1] ?? 0, i + 1))) / 2 + h \* 0.012;
+&#x20;   for (let i = 0; i < n; i++) s.frameX[i] = s.x[i] ?? 0;
+&#x20;   const sub = Math.max(2, Math.ceil(dt / 0.017));
+&#x20;   const sdt = dt / sub;
+&#x20;   for (let k = 0; k < sub; k++) {
+&#x20;     for (let i = 0; i < n; i++) {
+&#x20;       if (i === s.drag) continue;
+&#x20;       const restoring = now > s.free;
+&#x20;       const stiff = restoring ? 130 : 0;
+&#x20;       const damp = restoring ? 2 \* Math.sqrt(130) \* 0.86 : 3.2;
+&#x20;       const ax = -stiff \* ((s.x[i] ?? 0) - (s.tx[i] ?? 0)) - damp \* (s.vx[i] ?? 0);
+&#x20;       s.vx[i] = (s.vx[i] ?? 0) + ax \* sdt;
+&#x20;       s.x[i] = (s.x[i] ?? 0) + (s.vx[i] ?? 0) \* sdt;
+&#x20;     }
+&#x20;     for (let pass = 0; pass < 2; pass++) {
+&#x20;       for (let i = 0; i < n - 1; i++) {
+&#x20;         const a = s.x[i] ?? 0;
+&#x20;         const b = s.x[i + 1] ?? 0;
+&#x20;         const overlap = spacing(i) - (b - a);
+&#x20;         if (overlap <= 0) continue;
+&#x20;         if (i === s.drag) s.x[i + 1] = b + overlap;
+&#x20;         else if (i + 1 === s.drag) s.x[i] = a - overlap;
+&#x20;         else { s.x[i] = a - overlap / 2; s.x[i + 1] = b + overlap / 2; }
+&#x20;         const va = s.vx[i] ?? 0;
+&#x20;         const vb = s.vx[i + 1] ?? 0;
+&#x20;         if (va > vb) {
+&#x20;           const shared = (va + vb) / 2;
+&#x20;           const kick = (va - vb) \* 0.12;
+&#x20;           if (i !== s.drag) s.vx[i] = shared - kick;
+&#x20;           if (i + 1 !== s.drag) s.vx[i + 1] = shared + kick;
+&#x20;         }
+&#x20;       }
+&#x20;     }
+&#x20;     if (!carousel && n > 0) {
+&#x20;       const first = EDGE \* 0.5 + footprint(h, progress(s.turn[0] ?? 0, 0)) / 2;
+&#x20;       const last = width - EDGE \* 0.5 - footprint(h, progress(s.turn[n - 1] ?? 0, n - 1)) / 2;
+&#x20;       if ((s.x[0] ?? 0) < first) { s.x[0] = first; s.vx[0] = Math.abs(s.vx[0] ?? 0) \* 0.3; }
+&#x20;       if ((s.x[n - 1] ?? 0) > last) { s.x[n - 1] = last; s.vx[n - 1] = -Math.abs(s.vx[n - 1] ?? 0) \* 0.3; }
+&#x20;       for (let i = 0; i < n - 1; i++) {
+&#x20;         const min = (s.x[i] ?? 0) + spacing(i);
+&#x20;         if ((s.x[i + 1] ?? 0) >= min - 0.01) continue;
+&#x20;         s.x[i + 1] = min;
+&#x20;         if (i + 1 !== s.drag && (s.vx[i + 1] ?? 0) < (s.vx[i] ?? 0)) s.vx[i + 1] = s.vx[i] ?? 0;
+&#x20;       }
+&#x20;       if ((s.x[n - 1] ?? 0) > last) s.x[n - 1] = last;
+&#x20;       for (let i = n - 1; i > 0; i--) {
+&#x20;         const max = (s.x[i] ?? 0) - spacing(i - 1);
+&#x20;         if ((s.x[i - 1] ?? 0) <= max + 0.01) continue;
+&#x20;         s.x[i - 1] = max;
+&#x20;         if (i - 1 !== s.drag && (s.vx[i - 1] ?? 0) > (s.vx[i] ?? 0)) s.vx[i - 1] = s.vx[i] ?? 0;
+&#x20;       }
+&#x20;     }
+&#x20;     for (let i = 0; i < n; i++) {
+&#x20;       const ta = -150 \* ((s.turn[i] ?? 0) - (s.tturn[i] ?? 0)) - 2 \* Math.sqrt(150) \* 0.78 \* (s.vturn[i] ?? 0);
+&#x20;       s.vturn[i] = (s.vturn[i] ?? 0) + ta \* sdt;
+&#x20;       s.turn[i] = (s.turn[i] ?? 0) + (s.vturn[i] ?? 0) \* sdt;
+&#x20;       const sa = -SWING_K \* (s.swing[i] ?? 0) - SWING_DAMP \* (s.vswing[i] ?? 0) + (s.acc[i] ?? 0) \* COUPLE;
+&#x20;       s.vswing[i] = (s.vswing[i] ?? 0) + sa \* sdt;
+&#x20;       let swing = (s.swing[i] ?? 0) + (s.vswing[i] ?? 0) \* sdt;
+&#x20;       if (Math.abs(swing) > SWING_LIMIT) {
+&#x20;         swing = Math.sign(swing) \* SWING_LIMIT;
+&#x20;         if ((s.vswing[i] ?? 0) \* swing > 0) s.vswing[i] = -(s.vswing[i] ?? 0) \* 0.25;
+&#x20;       }
+&#x20;       s.swing[i] = swing;
+&#x20;       const tagA = -46 \* ((s.tag[i] ?? 0) - swing \* 0.6) - 3.4 \* (s.vtag[i] ?? 0) - (s.vswing[i] ?? 0) \* 0.9;
+&#x20;       s.vtag[i] = (s.vtag[i] ?? 0) + tagA \* sdt;
+&#x20;       s.tag[i] = clamp((s.tag[i] ?? 0) + (s.vtag[i] ?? 0) \* sdt, -30, 30);
+&#x20;     }
+&#x20;     for (let pass = 0; pass < 2; pass++) {
+&#x20;       for (let i = 0; i < n - 1; i++) {
+&#x20;         if (progress(s.turn[i] ?? 0, i) > 0.5 || progress(s.turn[i + 1] ?? 0, i + 1) > 0.5) continue;
+&#x20;         const ta = (s.x[i] ?? 0) - tail \* Math.sin((s.swing[i] ?? 0) \* RAD);
+&#x20;         const tb = (s.x[i + 1] ?? 0) - tail \* Math.sin((s.swing[i + 1] ?? 0) \* RAD);
+&#x20;         const overlap = deckW \* 0.98 + 1 - (tb - ta);
+&#x20;         if (overlap <= 0) continue;
+&#x20;         const turn = overlap / 2 / tail / RAD;
+&#x20;         s.swing[i] = clamp((s.swing[i] ?? 0) + turn, -SWING_LIMIT, SWING_LIMIT);
+&#x20;         s.swing[i + 1] = clamp((s.swing[i + 1] ?? 0) - turn, -SWING_LIMIT, SWING_LIMIT);
+&#x20;         const wa = s.vswing[i] ?? 0;
+&#x20;         const wb = s.vswing[i + 1] ?? 0;
+&#x20;         if (wa < wb) {
+&#x20;           const mean = (wa + wb) / 2;
+&#x20;           s.vswing[i] = mean + (wb - wa) \* 0.18;
+&#x20;           s.vswing[i + 1] = mean - (wb - wa) \* 0.18;
+&#x20;         }
+&#x20;       }
+&#x20;     }
+&#x20;   }
+&#x20;   for (let i = 0; i < n; i++) {
+&#x20;     const v = ((s.x[i] ?? 0) - (s.frameX[i] ?? 0)) / dt;
+&#x20;     const a = (v - (s.frameV[i] ?? 0)) / dt;
+&#x20;     s.frameV[i] = v;
+&#x20;     s.acc[i] = (s.acc[i] ?? 0) \* 0.5 + clamp(a, -30000, 30000) \* 0.5;
+&#x20;   }
+&#x20;   let busy = s.drag >= 0 || now < s.free;
+&#x20;   for (let i = 0; i < n; i++) {
+&#x20;     paint(i);
+&#x20;     if (Math.abs(s.vx[i] ?? 0) > 0.4 || (now > s.free && Math.abs((s.x[i] ?? 0) - (s.tx[i] ?? 0)) > 0.25) || Math.abs((s.turn[i] ?? 0) - (s.tturn[i] ?? 0)) > 0.05 || Math.abs(s.vturn[i] ?? 0) > 0.05 || Math.abs(s.swing[i] ?? 0) > 0.02 || Math.abs(s.vswing[i] ?? 0) > 0.05 || Math.abs(s.tag[i] ?? 0) > 0.05 || Math.abs(s.vtag[i] ?? 0) > 0.08 || Math.abs(s.acc[i] ?? 0) > 1) busy = true;
+&#x20;   }
+&#x20;   if (busy) s.raf = requestAnimationFrame(step);
+&#x20;   else {
+&#x20;     s.raf = 0; s.last = 0;
+&#x20;     for (let i = 0; i < n; i++) {
+&#x20;       if (now > s.free) s.x[i] = s.tx[i] ?? 0;
+&#x20;       s.turn[i] = s.tturn[i] ?? restAngle(i); s.vturn[i] = 0;
+&#x20;       s.swing[i] = 0; s.vswing[i] = 0; s.tag[i] = 0; s.vtag[i] = 0; s.acc[i] = 0; s.frameV[i] = 0;
+&#x20;       paint(i);
+&#x20;     }
+&#x20;   }
+&#x20; }, [paint]);
+
+&#x20; const kick = React.useCallback(() => {
+&#x20;   const s = sim.current;
+&#x20;   if (live.current.reduced) {
+&#x20;     for (let i = 0; i < live.current.count; i++) {
+&#x20;       s.x[i] = s.tx[i] ?? 0; s.vx[i] = 0; s.turn[i] = s.tturn[i] ?? restAngle(i); s.vturn[i] = 0;
+&#x20;       s.swing[i] = 0; s.vswing[i] = 0; s.tag[i] = 0; s.vtag[i] = 0; s.acc[i] = 0; s.frameV[i] = 0;
+&#x20;       paint(i);
+&#x20;     }
+&#x20;     return;
+&#x20;   }
+&#x20;   if (!s.raf) { s.last = 0; s.raf = requestAnimationFrame(step); }
+&#x20; }, [paint, step]);
+
+&#x20; const impulse = React.useCallback((i: number, amount: number) => {
+&#x20;   const s = sim.current;
+&#x20;   if (live.current.reduced || i < 0 || i >= live.current.count) return;
+&#x20;   s.vswing[i] = (s.vswing[i] ?? 0) + amount;
+&#x20;   kick();
+&#x20; }, [kick]);
+
+&#x20; const choose = React.useCallback((index: number | null) => {
+&#x20;   const l = live.current;
+&#x20;   if (index === l.active || index === l.requested) return;
+&#x20;   l.requested = index;
+&#x20;   if (!l.controlled) { l.active = index; setInnerActive(index); }
+&#x20;   l.onActiveChange?.(index);
+&#x20; }, []);
+
+&#x20; const previous = React.useRef(null as number | null);
+&#x20; React.useLayoutEffect(() => {
+&#x20;   const old = previous.current;
+&#x20;   live.current.requested = undefined;
+&#x20;   if (old === active) return;
+&#x20;   previous.current = active;
+&#x20;   if (active !== null) { impulse(active - 1, -26); impulse(active + 1, 26); live.current.carouselIndex = active; }
+&#x20;   if (old !== null) { impulse(old - 1, 12); impulse(old + 1, -12); }
+&#x20; }, [active, impulse]);
+
+&#x20; React.useLayoutEffect(() => {
+&#x20;   if (!size.width) return;
+&#x20;   const s = sim.current;
+&#x20;   const front = active;
+&#x20;   const xs = targets(size.h, size.width, size.carousel, front, active ?? live.current.carouselIndex);
+&#x20;   const fresh = s.x.length !== count;
+&#x20;   for (let i = 0; i < count; i++) {
+&#x20;     s.tx[i] = (xs[i] ?? 0) + (size.carousel ? pointer.current.swipe : 0);
+&#x20;     s.tturn[i] = i === front ? 0 : restAngle(i);
+&#x20;     if (fresh || reduced) {
+&#x20;       s.x[i] = s.tx[i] ?? 0; s.vx[i] = 0; s.frameX[i] = s.x[i] ?? 0; s.frameV[i] = 0; s.acc[i] = 0;
+&#x20;       s.turn[i] = s.tturn[i] ?? restAngle(i); s.vturn[i] = 0;
+&#x20;       s.swing[i] = s.swing[i] ?? 0; s.vswing[i] = s.vswing[i] ?? 0; s.tag[i] = 0; s.vtag[i] = 0;
+&#x20;     }
+&#x20;   }
+&#x20;   if (fresh) { s.x.length = count; for (let i = 0; i < count; i++) paint(i); }
+&#x20;   kick();
+&#x20; }, [size, active, count, reduced, targets, paint, kick]);
+
+&#x20; const brushed = React.useRef(false);
+&#x20; React.useEffect(() => {
+&#x20;   if (!size.width || brushed.current || reduced) return;
+&#x20;   brushed.current = true;
+&#x20;   const timers = items.map((\_, i) => window\.setTimeout(() => impulse(i, 38 - i \* 2), 90 + i \* 60));
+&#x20;   return () => timers.forEach((t) => window\.clearTimeout(t));
+&#x20; }, [size.width, reduced, items, impulse]);
+
+&#x20; React.useEffect(() => () => { cancelAnimationFrame(sim.current.raf); sim.current.raf = 0; }, []);
+
+&#x20; React.useLayoutEffect(() => {
+&#x20;   if (openIndex !== null || lifted !== null || returnFocus.current === null) return;
+&#x20;   const index = returnFocus.current;
+&#x20;   returnFocus.current = null;
+&#x20;   slots.current[index]?.focus({ preventScroll: true });
+&#x20; }, [openIndex, lifted]);
+
+&#x20; const stop = React.useCallback(() => setPlaying(false), []);
+
+&#x20; React.useEffect(() => {
+&#x20;   if (!playing || reduced || openIndex !== null || count === 0 || !size.width) return;
+&#x20;   let timer = window\.setTimeout(function advance() {
+&#x20;     const current = live.current.active;
+&#x20;     choose(current === null ? 0 : (current + 1) % live.current.count);
+&#x20;     timer = window\.setTimeout(advance, interval);
+&#x20;   }, active === null ? 1100 : interval);
+&#x20;   return () => window\.clearTimeout(timer);
+&#x20; }, [playing, reduced, openIndex, count, interval, size.width, choose, active]);
+
+&#x20; const open = React.useCallback((index: number) => {
+&#x20;   stop();
+&#x20;   choose(index);
+&#x20;   setOpenIndex(index);
+&#x20;   live.current.onOpenChange?.(index);
+&#x20; }, [choose, stop]);
+
+&#x20; const source = React.useCallback(() => (openIndex === null ? null : turns.current[openIndex]?.getBoundingClientRect() ?? null), [openIndex]);
+&#x20; const onLift = React.useCallback((lift: boolean) => setLifted(lift ? openIndex : null), [openIndex]);
+&#x20; const onDetailClose = React.useCallback(() => {
+&#x20;   const index = openIndex;
+&#x20;   if (index === null) return;
+&#x20;   returnFocus.current = index;
+&#x20;   setOpenIndex(null);
+&#x20;   live.current.onOpenChange?.(null);
+&#x20;   impulse(index, (index % 2 ? 1 : -1) \* 40);
+&#x20; }, [openIndex, impulse]);
+
+&#x20; function nearest(clientX: number, clientY: number) {
+&#x20;   const stage = stageRef.current;
+&#x20;   if (!stage) return null;
+&#x20;   const box = stage.getBoundingClientRect();
+&#x20;   const x = clientX - box.left;
+&#x20;   const y = clientY - box.top;
+&#x20;   const { h } = live.current.size;
+&#x20;   const g = stageGeometry(h);
+&#x20;   if (y < g.railY - 10 || y > g.height) return null;
+&#x20;   const s = sim.current;
+&#x20;   let best = null as number | null;
+&#x20;   let distance = Infinity;
+&#x20;   for (let i = 0; i < live.current.count; i++) {
+&#x20;     const half = footprint(h, progress(s.turn[i] ?? 0, i)) / 2 + 4;
+&#x20;     const d = Math.abs(x - (s.x[i] ?? 0));
+&#x20;     if (d < half && d < distance) { best = i; distance = d; }
+&#x20;   }
+&#x20;   return best;
+&#x20; }
+
+&#x20; const onPointerMove = (event: React.PointerEvent) => {
+&#x20;   const p = pointer.current;
+&#x20;   const s = sim.current;
+&#x20;   const stage = stageRef.current;
+&#x20;   if (p.id === event.pointerId && stage) {
+&#x20;     const dx = event.clientX - p.x;
+&#x20;     const now = performance.now();
+&#x20;     if (!p.moved && Math.abs(dx) > 6 && Math.abs(dx) > Math.abs(event.clientY - p.y)) {
+&#x20;       p.moved = true;
+&#x20;       stop();
+&#x20;       if (stage.isConnected) stage.setPointerCapture(event.pointerId);
+&#x20;       if (!live.current.size.carousel && p.index >= 0) {
+&#x20;         s.drag = p.index;
+&#x20;         s.grab = (event.clientX - stage.getBoundingClientRect().left) - (s.x[p.index] ?? 0);
+&#x20;       }
+&#x20;     }
+&#x20;     if (p.moved) {
+&#x20;       const v = (event.clientX - p.lastX) / Math.max(1, now - p.lastT);
+&#x20;       p.v = p.v \* 0.6 + v \* 0.4;
+&#x20;       p.lastX = event.clientX; p.lastT = now;
+&#x20;       if (s.drag >= 0) {
+&#x20;         s.vx[s.drag] = p.v \* 1000;
+&#x20;         s.x[s.drag] = event.clientX - stage.getBoundingClientRect().left - s.grab;
+&#x20;         s.free = now + 900;
+&#x20;         kick();
+&#x20;       } else if (live.current.size.carousel) {
+&#x20;         p.swipe = dx;
+&#x20;         const xs = targets(live.current.size.h, live.current.size.width, true, live.current.active, live.current.active ?? live.current.carouselIndex);
+&#x20;         for (let i = 0; i < live.current.count; i++) s.tx[i] = (xs[i] ?? 0) + dx;
+&#x20;         kick();
+&#x20;       }
+&#x20;     }
+&#x20;     return;
+&#x20;   }
+&#x20;   if (event.pointerType !== "mouse" || live.current.size.carousel || live.current.openIndex !== null) return;
+&#x20;   const hit = nearest(event.clientX, event.clientY);
+&#x20;   const current = live.current.active;
+&#x20;   if (current !== null && hit !== current) {
+&#x20;     const box = stage?.getBoundingClientRect();
+&#x20;     const keep = box ? Math.abs(event.clientX - box.left - (s.x[current] ?? 0)) < footprint(live.current.size.h, 1) / 2 + 10 : false;
+&#x20;     if (keep && hit === null) return;
+&#x20;   }
+&#x20;   if (hit !== null) { stop(); choose(hit); }
+&#x20; };
+
+&#x20; const onPointerDown = (event: React.PointerEvent) => {
+&#x20;   if (event.button !== 0) return;
+&#x20;   const hit = nearest(event.clientX, event.clientY);
+&#x20;   const now = performance.now();
+&#x20;   pendingOpen.current = -1;
+&#x20;   pointer.current = { id: event.pointerId, index: hit ?? -1, x: event.clientX, y: event.clientY, moved: false, kind: event.pointerType, swipe: 0, lastX: event.clientX, lastT: now, v: 0 };
+&#x20; };
+
+&#x20; const finishPointer = (event: React.PointerEvent, cancelled: boolean) => {
+&#x20;   const p = pointer.current;
+&#x20;   if (p.id !== event.pointerId) return;
+&#x20;   const s = sim.current;
+&#x20;   const stage = stageRef.current;
+&#x20;   if (stage?.hasPointerCapture(event.pointerId)) stage.releasePointerCapture(event.pointerId);
+&#x20;   pointer.current = { ...p, id: -1 };
+&#x20;   if (s.drag >= 0) {
+&#x20;     // a fling only if the hand was still moving when it let go
+&#x20;     const idle = performance.now() - p.lastT;
+&#x20;     s.vx[s.drag] = (s.vx[s.drag] ?? 0) \* clamp(1 - idle / 120, 0, 1);
+&#x20;     s.drag = -1;
+&#x20;     s.free = performance.now() + 700;
+&#x20;     kick();
+&#x20;     return;
+&#x20;   }
+&#x20;   if (p.moved && live.current.size.carousel) {
+&#x20;     const dx = event.clientX - p.x;
+&#x20;     const current = live.current.active ?? live.current.carouselIndex;
+&#x20;     const advance = Math.abs(dx) > 40 || Math.abs(p.v) > 0.45 ? (dx < 0 ? 1 : -1) : 0;
+&#x20;     pointer.current.swipe = 0;
+&#x20;     choose(clamp(current + advance, 0, live.current.count - 1));
+&#x20;     for (let i = 0; i < live.current.count; i++) impulse(i, clamp(-p.v \* 22, -30, 30));
+&#x20;     return;
+&#x20;   }
+&#x20;   if (cancelled || p.moved || p.index < 0) return;
+&#x20;   stop();
+&#x20;   const touch = p.kind !== "mouse";
+&#x20;   if (touch && live.current.active !== p.index) choose(p.index);
+&#x20;   else pendingOpen.current = p.index;
+&#x20; };
+
+&#x20; const onKeyDown = (event: React.KeyboardEvent) => {
+&#x20;   const keys = ["ArrowRight", "ArrowLeft", "Home", "End"];
+&#x20;   if (!keys.includes(event.key) || count === 0) return;
+&#x20;   event.preventDefault();
+&#x20;   stop();
+&#x20;   const from = active ?? focusIndex;
+&#x20;   const next = event.key === "Home" ? 0 : event.key === "End" ? count - 1 : clamp(from + (event.key === "ArrowRight" ? 1 : -1), 0, count - 1);
+&#x20;   setFocusIndex(next);
+&#x20;   choose(next);
+&#x20;   slots.current[next]?.focus({ preventScroll: true });
+&#x20; };
+
+&#x20; const current = active === null ? null : items[active];
+&#x20; const hook = hookGeometry(size.h);
+
+&#x20; return (
+&#x20;   \<section
+&#x20;     {...rest}
+&#x20;     data-slot="skate-deck-rail"
+&#x20;     data-mode={size.carousel ? "carousel" : "rail"}
+&#x20;     data-active={active ?? ""}
+&#x20;     className={\`relative isolate w-full overflow-hidden bg-background text-foreground [--rail-ink:var(--color-foreground)] dark:[--rail-ink:color-mix(in_oklab,var(--color-foreground)\_17%,var(--color-background))] ${className ?? ""}\`}
+&#x20;   \>
+&#x20;     \<Defs uid={uid} h={size.h} />
+&#x20;     \<div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10" style={{ background: "radial-gradient(90% 75% at 22% 18%, color-mix(in oklab, var(--color-foreground) 6%, transparent), transparent 70%), radial-gradient(70% 60% at 50% 55%, color-mix(in oklab, var(--color-foreground) 3%, transparent), transparent 80%)", WebkitMaskImage: "linear-gradient(to bottom, transparent, black 18%, black 80%, transparent)", maskImage: "linear-gradient(to bottom, transparent, black 18%, black 80%, transparent)" }} />
+&#x20;     {(eyebrow || heading) && (
+&#x20;       \<header className="relative z-10 flex flex-col items-center gap-2 px-6 pt-7 text-center">
+&#x20;         {eyebrow && \<p className="text-[11px] font-medium uppercase tracking-[0.28em] text-muted-foreground">{eyebrow}\</p>}
+&#x20;         {heading && \<h2 className="text-balance text-2xl font-medium tracking-tight md:text-3xl">{heading}\</h2>}
+&#x20;       \</header>
+&#x20;     )}
+
+&#x20;     \<div
+&#x20;       ref={stageRef}
+&#x20;       data-stage
+&#x20;       role="group"
+&#x20;       aria-roledescription="deck rail"
+&#x20;       aria-label={heading ?? "Deck rail"}
+&#x20;       className="relative mt-4 w-full touch-pan-y select-none"
+&#x20;       style={{ height: geo.height, overflowX: "clip" }}
+&#x20;       onPointerMove={onPointerMove}
+&#x20;       onPointerDown={onPointerDown}
+&#x20;       onPointerUp={(event) => finishPointer(event, false)}
+&#x20;       onPointerCancel={(event) => finishPointer(event, true)}
+&#x20;       onPointerLeave={(event) => { if (event.pointerType === "mouse" && pointer.current.id < 0 && !live.current.size.carousel && !document.activeElement?.matches("[data-deck]:focus-visible")) choose(null); }}
+&#x20;       onKeyDown={onKeyDown}
+&#x20;     \>
+&#x20;       \<div aria-hidden="true" className="pointer-events-none absolute inset-0" style={{ backgroundImage: "radial-gradient(circle, color-mix(in oklab, var(--color-foreground) 8%, transparent) 0 1.3px, transparent 1.8px)", backgroundSize: "22px 22px", backgroundPosition: "11px 6px", WebkitMaskImage: "linear-gradient(to bottom, transparent, black 14%, black 72%, transparent)", maskImage: "linear-gradient(to bottom, transparent, black 14%, black 72%, transparent)" }} />
+&#x20;       \<div aria-hidden="true" data-rail className="pointer-events-none absolute inset-x-0 z-[5]" style={{ top: geo.railY - geo.railT / 2, height: geo.railT }}>
+&#x20;         \<div className="absolute inset-x-3 h-3 rounded-full bg-black/15 blur-[5px] dark:bg-black/60" style={{ top: geo.railT + 1 }} />
+&#x20;         \<div className="absolute inset-0 rounded-full" style={{ background: RAIL_GRADIENT, boxShadow: "0 1px 0 color-mix(in oklab, var(--color-foreground) 14%, transparent)" }} />
+&#x20;         \<svg aria-hidden="true" className="absolute inset-0 size-full rounded-full opacity-25 mix-blend-overlay" preserveAspectRatio="none">
+&#x20;           \<rect width="100%" height="100%" filter={\`url(#${uid}-powder)\`} />
+&#x20;         \</svg>
+&#x20;         \<div className="absolute inset-x-2 top-[20%] h-px rounded-full bg-white/35 dark:bg-white/25" />
+&#x20;         {[0, 1].map((side) => (
+&#x20;           \<div key={side} className="absolute top-1/2 w-3.5 -translate-y-1/2 rounded-[3px]" style={{ [side ? "right" : "left"]: 8, height: geo.railT \* 2.8, background: BRACKET_GRADIENT, boxShadow: "0 3px 6px color-mix(in oklab, black 22%, transparent)" }}>
+&#x20;             \<span className="absolute left-1/2 top-1 size-1 -translate-x-1/2 rounded-full bg-white/30" />
+&#x20;             \<span className="absolute bottom-1 left-1/2 size-1 -translate-x-1/2 rounded-full bg-white/30" />
+&#x20;           \</div>
+&#x20;         ))}
+&#x20;       \</div>
+
+&#x20;       {items.map((item, i) => {
+&#x20;         const fallback = !!failed[item.id];
+&#x20;         const mask = fallback ? FALLBACK_MASK : \`url("${item.image}")\`;
+&#x20;         const facing = active === i;
+&#x20;         return (
+&#x20;           \<button
+&#x20;             key={item.id}
+&#x20;             ref={(node) => { slots.current[i] = node; }}
+&#x20;             type="button"
+&#x20;             data-deck={i}
+&#x20;             data-front={facing || undefined}
+&#x20;             tabIndex={i === (active ?? focusIndex) ? 0 : -1}
+&#x20;             aria-label={item.name}
+&#x20;             aria-describedby={\`${uid}-caption\`}
+&#x20;             aria-pressed={facing}
+&#x20;             className="group absolute left-0 cursor-pointer rounded-lg outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring"
+&#x20;             style={{ top: geo.top, width: w, height: size.h, zIndex: facing ? 30 : 10 + i, transform: \`translate3d(${((sim.current.x[i] ?? 0) - w / 2).toFixed(2)}px,0,0)\` }}
+&#x20;             onFocus={() => { setFocusIndex(i); if (pointer.current.id < 0) { stop(); choose(i); } }}
+&#x20;             onClick={(event) => { const pending = pendingOpen.current; pendingOpen.current = -1; if (event.detail === 0 || pending === i) open(i); }}
+&#x20;           \>
+&#x20;             \<span ref={(node) => { hangs.current[i] = node; }} data-hang className="absolute inset-0" style={{ transformOrigin: \`calc(50% + ${hook.pivotX.toFixed(2)}px) ${hook.pivotY.toFixed(2)}px\` }}>
+&#x20;               \<span ref={(node) => { swings.current[i] = node; }} data-swing className="absolute inset-0" style={{ transformOrigin: \`50% ${HOLE_Y \* 100}%\`, visibility: lifted === i ? "hidden" : undefined }}>
+&#x20;                 \<span aria-hidden="true" className="pointer-events-none absolute inset-0" style={{ filter: \`blur(${Math.max(2, size.h \* 0.008).toFixed(1)}px)\` }}>
+&#x20;                   \<span ref={(node) => { nears.current[i] = node; }} data-shadow="near" className="absolute inset-0 block bg-black/25 dark:bg-black/70" style={maskStyle(mask, fallback)} />
+&#x20;                 \</span>
+&#x20;                 \<span aria-hidden="true" className="pointer-events-none absolute inset-0" style={{ filter: \`blur(${Math.max(6, size.h \* 0.03).toFixed(1)}px)\` }}>
+&#x20;                   \<span ref={(node) => { fars.current[i] = node; }} data-shadow="far" className="absolute inset-0 block bg-black/20 opacity-0 dark:bg-black/65" style={maskStyle(mask, fallback)} />
+&#x20;                 \</span>
+&#x20;                 \<span ref={(node) => { turns.current[i] = node; }} data-turn className="absolute inset-0" style={{ transformOrigin: \`50% ${HOLE_Y \* 100}%\`, transform: \`perspective(${PERSPECTIVE}px) rotateY(${restAngle(i)}deg)\` }}>
+&#x20;                   {fallback
+&#x20;                     ? \<FallbackArt tone={i} />
+&#x20;                     : \<img src={item.image} alt="" draggable={false} decoding="async" onError={() => setFailed((old) => (old[item.id] ? old : { ...old, [item.id]: true }))} className="pointer-events-none absolute inset-0 size-full select-none object-contain" />}
+&#x20;                   \<span ref={(node) => { shades.current[i] = node; }} aria-hidden="true" data-shade className="pointer-events-none absolute inset-0" style={{ ...maskStyle(mask, fallback), background: REST_SHADE }} />
+&#x20;                   \<span aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden" style={maskStyle(mask, fallback)}>
+&#x20;                     \<span ref={(node) => { glints.current[i] = node; }} className="absolute inset-y-0 left-0 w-[70%] opacity-0" style={{ background: "linear-gradient(90deg, transparent, color-mix(in oklab, white 55%, transparent) 50%, transparent)" }} />
+&#x20;                   \</span>
+&#x20;                   \<Hole h={size.h} />
+&#x20;                 \</span>
+&#x20;               \</span>
+&#x20;               \<Hook uid={uid} h={size.h} />
+&#x20;               {item.tag && (
+&#x20;                 \<span ref={(node) => { tags.current[i] = node; }} aria-hidden="true" className="pointer-events-none absolute origin-top" style={{ left: \`calc(50% + ${(hook.t \* 0.6).toFixed(1)}px)\`, top: \`${HOLE_Y \* 100}%\`, transform: \`rotate(-9deg) scale(${tagScale(size.h).toFixed(3)})\` }}>
+&#x20;                   \<span className="block h-[12px] w-px bg-foreground/40" />
+&#x20;                   \<span className="relative -ml-2 block whitespace-nowrap rounded-[3px] border border-foreground/10 bg-card px-1.5 pb-1 pt-2 text-[9px] font-semibold leading-none tracking-wide text-card-foreground shadow-[0_2px_6px_color-mix(in_oklab,black_22%,transparent)]">
+&#x20;                     \<span className="absolute left-2 top-[3px] size-[3px] -translate-x-1/2 rounded-full bg-foreground/30" />
+&#x20;                     {item.tag}
+&#x20;                   \</span>
+&#x20;                 \</span>
+&#x20;               )}
+&#x20;             \</span>
+&#x20;             \<span aria-hidden="true" className="pointer-events-none absolute left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-chart-1 px-2.5 py-1 text-[10px] font-semibold uppercase leading-none tracking-[0.16em] text-foreground opacity-0 shadow-sm transition-opacity duration-200 group-data-[front]:opacity-100 motion-reduce:transition-none" style={{ top: size.h \* 1.12 + 8 }}>
+&#x20;               {labels.open}
+&#x20;             \</span>
+&#x20;           \</button>
+&#x20;         );
+&#x20;       })}
+&#x20;     \</div>
+
+&#x20;     {size.carousel && count > 1 && (
+&#x20;       \<div className="relative z-10 flex justify-center gap-1.5" role="group" aria-label={heading ?? "Deck rail"}>
+&#x20;         {items.map((item, i) => (
+&#x20;           \<button key={item.id} type="button" tabIndex={-1} aria-label={item.name} aria-current={carouselIndex === i} onClick={() => { stop(); choose(i); }} className={\`h-1.5 rounded-full outline-none transition-[width,background-color] duration-300 focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none ${carouselIndex === i ? "w-6 bg-foreground" : "w-1.5 bg-foreground/25 hover:bg-foreground/45"}\`} />
+&#x20;         ))}
+&#x20;       \</div>
+&#x20;     )}
+
+&#x20;     \<div className="relative z-10 flex flex-col items-center gap-3 px-6 pb-7 pt-3 text-center">
+&#x20;       \<div id={\`${uid}-caption\`} aria-live="polite" className="min-h-[2.75rem]">
+&#x20;         \<p className="text-sm font-medium">{current ? current.name : caption}\</p>
+&#x20;         {current && (current.series || current.tag) && \<p className="mt-1 text-[13px] text-muted-foreground">{[current.series, current.tag].filter(Boolean).join(" · ")}\</p>}
+&#x20;       \</div>
+&#x20;       {action}
+&#x20;     \</div>
+
+&#x20;     {openIndex !== null && items[openIndex] && (
+&#x20;       \<Detail
+&#x20;         uid={uid}
+&#x20;         item={items[openIndex]}
+&#x20;         index={openIndex}
+&#x20;         total={count}
+&#x20;         labels={labels}
+&#x20;         reduced={reduced}
+&#x20;         fallback={!!failed[items[openIndex].id]}
+&#x20;         extra={detailAction?.(items[openIndex], openIndex)}
+&#x20;         source={source}
+&#x20;         onLift={onLift}
+&#x20;         onClose={onDetailClose}
+&#x20;       />
+&#x20;     )}
+&#x20;   \</section>
+&#x20; );
+}
+
+function GripFace({ uid, item, mask, fallback, tone }: { uid: string; item: SkateDeck; mask: string; fallback: boolean; tone: number }) {
+&#x20; if (item.gripImage) {
+&#x20;   return (
+&#x20;     \<div data-grip className="absolute inset-0">
+&#x20;       \<img src={item.gripImage} alt="" draggable={false} className="pointer-events-none absolute inset-0 size-full select-none object-contain" />
+&#x20;     \</div>
+&#x20;   );
+&#x20; }
+&#x20; const cut = \`inset(${GRIP_WINDOW\.top}% ${GRIP_WINDOW\.side}% ${GRIP_WINDOW\.bottom}% ${GRIP_WINDOW\.side}% round 4px)\`;
+&#x20; return (
+&#x20;   \<div data-grip className="absolute inset-0 [--grip-ink:color-mix(in_oklab,var(--color-foreground)\_90%,var(--color-background))] dark:[--grip-ink:color-mix(in_oklab,var(--color-background)\_55%,black)]">
+&#x20;     {fallback
+&#x20;       ? \<span aria-hidden="true" className="absolute inset-0" style={{ ...maskStyle(mask, fallback), background: PLY }} />
+&#x20;       : \<img src={item.image} alt="" draggable={false} className="pointer-events-none absolute inset-0 size-full -scale-x-100 select-none object-contain" />}
+&#x20;     \<span aria-hidden="true" className="absolute inset-0 overflow-hidden" style={{ ...maskStyle(mask, fallback), transform: "scale(0.974, 0.992)" }}>
+&#x20;       \<span className="absolute inset-0 bg-[var(--grip-ink)]" />
+&#x20;       \<svg aria-hidden="true" className="absolute inset-0 size-full opacity-50 mix-blend-screen dark:opacity-35" preserveAspectRatio="none">
+&#x20;         \<rect width="100%" height="100%" filter={\`url(#${uid}-grit)\`} />
+&#x20;       \</svg>
+&#x20;       \<span className="absolute inset-0" style={{ background: CONCAVE }} />
+&#x20;     \</span>
+&#x20;     {BOLTS.map(([x, y]) => (
+&#x20;       \<span key={\`${x}-${y}\`} aria-hidden="true" data-bolt className="absolute h-auto min-w-1 -translate-x-1/2 -translate-y-1/2 rounded-full bg-black/80" style={{ left: \`${(x ?? 0) \* 100}%\`, top: \`${(y ?? 0) \* 100}%\`, width: "3.6%", aspectRatio: "1", boxShadow: "inset 0 1px 1px color-mix(in oklab, black 80%, transparent), 0 0.5px 0 color-mix(in oklab, white 26%, transparent)" }} />
+&#x20;     ))}
+&#x20;     \<span aria-hidden="true" data-window className="absolute inset-0" style={{ clipPath: cut, WebkitClipPath: cut }}>
+&#x20;       {fallback ? \<FallbackArt tone={tone} /> : \<img src={item.image} alt="" draggable={false} className="pointer-events-none absolute inset-0 size-full -scale-x-100 select-none object-contain" />}
+&#x20;     \</span>
+&#x20;     \<span aria-hidden="true" className="absolute rounded-[4px] shadow-[inset_0_1px_3px_color-mix(in_oklab,black_70%,transparent),0_0_0_1px_color-mix(in_oklab,white_14%,transparent)]" style={{ left: \`${GRIP_WINDOW\.side}%\`, right: \`${GRIP_WINDOW\.side}%\`, top: \`${GRIP_WINDOW\.top}%\`, bottom: \`${GRIP_WINDOW\.bottom}%\` }} />
+&#x20;   \</div>
+&#x20; );
+}
+
+function Detail({ uid, item, index, total, labels, reduced, fallback, extra, source, onLift, onClose }: {
+&#x20; uid: string;
+&#x20; item: SkateDeck;
+&#x20; index: number;
+&#x20; total: number;
+&#x20; labels: SkateDeckRailLabels;
+&#x20; reduced: boolean;
+&#x20; fallback: boolean;
+&#x20; extra: React.ReactNode;
+&#x20; source: () => DOMRect | null;
+&#x20; onLift: (lifted: boolean) => void;
+&#x20; onClose: () => void;
+}) {
+&#x20; const dialogRef = React.useRef(null as HTMLDivElement | null);
+&#x20; const figureRef = React.useRef(null as HTMLDivElement | null);
+&#x20; const spinRef = React.useRef(null as HTMLDivElement | null);
+&#x20; const closeRef = React.useRef(null as HTMLButtonElement | null);
+&#x20; const [side, setSide] = React.useState("graphic" as "graphic" | "grip");
+&#x20; const [shown, setShown] = React.useState(false);
+&#x20; const angle = React.useRef({ value: 0, target: 0, velocity: 0, raf: 0, last: 0, dragging: false, startX: 0, startAngle: 0, auto: 0 });
+&#x20; const closing = React.useRef(false);
+&#x20; const titleId = \`${uid}-deck-title\`;
+&#x20; const mask = fallback ? FALLBACK_MASK : \`url("${item.image}")\`;
+
+&#x20; const spin = React.useCallback(() => {
+&#x20;   const a = angle.current;
+&#x20;   const node = spinRef.current;
+&#x20;   const loop = (now: number) => {
+&#x20;     const dt = a.last ? Math.min(0.1, (now - a.last) / 1000) : 1 / 60;
+&#x20;     a.last = now;
+&#x20;     const steps = Math.max(1, Math.ceil(dt / 0.017));
+&#x20;     for (let k = 0; k < steps; k++) {
+&#x20;       const accel = -90 \* (a.value - a.target) - 2 \* Math.sqrt(90) \* 0.8 \* a.velocity;
+&#x20;       a.velocity += accel \* (dt / steps);
+&#x20;       a.value += a.velocity \* (dt / steps);
+&#x20;     }
+&#x20;     if (node) node.style.transform = \`rotateY(${a.value.toFixed(2)}deg)\`;
+&#x20;     if (Math.abs(a.value - a.target) < 0.05 && Math.abs(a.velocity) < 0.05) { a.value = a.target; if (node) node.style.transform = \`rotateY(${a.value}deg)\`; a.raf = 0; a.last = 0; return; }
+&#x20;     a.raf = requestAnimationFrame(loop);
+&#x20;   };
+&#x20;   if (reduced) { a.value = a.target; a.velocity = 0; if (node) node.style.transform = \`rotateY(${a.value}deg)\`; return; }
+&#x20;   if (!a.raf) a.raf = requestAnimationFrame(loop);
+&#x20; }, [reduced]);
+
+&#x20; const turnTo = React.useCallback((next: "graphic" | "grip") => {
+&#x20;   const a = angle.current;
+&#x20;   window\.clearTimeout(a.auto);
+&#x20;   a.auto = 0;
+&#x20;   const base = Math.round(a.value / 360) \* 360;
+&#x20;   a.target = base + (next === "grip" ? 180 : 0);
+&#x20;   if (Math.abs(a.target - a.value) > 180) a.target -= 360 \* Math.sign(a.target - a.value);
+&#x20;   setSide(next);
+&#x20;   spin();
+&#x20; }, [spin]);
+
+&#x20; React.useLayoutEffect(() => {
+&#x20;   const figure = figureRef.current;
+&#x20;   const from = source();
+&#x20;   const a = angle.current;
+&#x20;   closeRef.current?.focus({ preventScroll: true });
+&#x20;   const overflow = document.body.style.overflow;
+&#x20;   document.body.style.overflow = "hidden";
+&#x20;   let animation = null as Animation | null;
+&#x20;   if (figure && from && !reduced && from.width > 0) {
+&#x20;     const to = figure.getBoundingClientRect();
+&#x20;     const scale = from.height / to.height;
+&#x20;     const dx = from.left + from.width / 2 - (to.left + to.width / 2);
+&#x20;     const dy = from.top - to.top;
+&#x20;     const lift = Math.min(90, Math.abs(dy) \* 0.25 + 30);
+&#x20;     onLift(true);
+&#x20;     animation = figure.animate([
+&#x20;       { transform: \`translate(${dx}px, ${dy}px) scale(${scale})\` },
+&#x20;       { transform: \`translate(${dx \* 0.4}px, ${dy \* 0.4 - lift}px) scale(${((scale + 1) / 2) \* 1.03}) rotate(${dx > 0 ? -3 : 3}deg)\`, offset: 0.5 },
+&#x20;       { transform: "none" },
+&#x20;     ], { duration: 680, easing: "cubic-bezier(.22,.85,.3,1)" });
+&#x20;   }
+&#x20;   const raf = requestAnimationFrame(() => setShown(true));
+&#x20;   if (reduced) {
+&#x20;     a.target = 180; a.value = 180; a.velocity = 0;
+&#x20;     if (spinRef.current) spinRef.current.style.transform = "rotateY(180deg)";
+&#x20;     setSide("grip");
+&#x20;   } else {
+&#x20;     a.auto = window\.setTimeout(() => {
+&#x20;       a.auto = 0;
+&#x20;       a.target = 180;
+&#x20;       setSide("grip");
+&#x20;       spin();
+&#x20;     }, 860);
+&#x20;   }
+&#x20;   return () => {
+&#x20;     cancelAnimationFrame(raf);
+&#x20;     animation?.cancel();
+&#x20;     window\.clearTimeout(a.auto);
+&#x20;     document.body.style.overflow = overflow;
+&#x20;     cancelAnimationFrame(a.raf);
+&#x20;     a.raf = 0;
+&#x20;     onLift(false);
+&#x20;   };
+&#x20; }, [source, reduced, onLift, spin]);
+
+&#x20; const dismiss = React.useCallback(() => {
+&#x20;   if (closing.current) return;
+&#x20;   closing.current = true;
+&#x20;   setShown(false);
+&#x20;   turnTo("graphic");
+&#x20;   const figure = figureRef.current;
+&#x20;   const to = source();
+&#x20;   if (!figure || !to || reduced || to.width === 0) { onClose(); return; }
+&#x20;   const from = figure.getBoundingClientRect();
+&#x20;   const scale = to.height / from.height;
+&#x20;   const dx = to.left + to.width / 2 - (from.left + from.width / 2);
+&#x20;   const dy = to.top - from.top;
+&#x20;   const animation = figure.animate([
+&#x20;     { transform: "none" },
+&#x20;     { transform: \`translate(${dx \* 0.6}px, ${dy \* 0.6 - 30}px) scale(${(scale + 1) / 2})\`, offset: 0.55 },
+&#x20;     { transform: \`translate(${dx}px, ${dy}px) scale(${scale})\` },
+&#x20;   ], { duration: 560, easing: "cubic-bezier(.45,0,.55,1)", fill: "forwards" });
+&#x20;   animation.onfinish = () => onClose();
+&#x20; }, [source, reduced, onClose, turnTo]);
+
+&#x20; React.useEffect(() => {
+&#x20;   const onKey = (event: KeyboardEvent) => {
+&#x20;     const dialog = dialogRef.current;
+&#x20;     if (!dialog || dialog.contains(event.target as Node)) return;
+&#x20;     if (event.key === "Escape") { event.preventDefault(); dismiss(); }
+&#x20;     else if (event.key === "ArrowLeft" || event.key === "ArrowRight") turnTo(side === "graphic" ? "grip" : "graphic");
+&#x20;     else if (event.key === "Tab") { const first = dialog.querySelector("button"); if (first) { event.preventDefault(); first.focus(); } }
+&#x20;   };
+&#x20;   document.addEventListener("keydown", onKey);
+&#x20;   return () => document.removeEventListener("keydown", onKey);
+&#x20; }, [dismiss, turnTo, side]);
+
+&#x20; const onKeyDown = (event: React.KeyboardEvent) => {
+&#x20;   if (event.key === "Escape") { event.preventDefault(); dismiss(); return; }
+&#x20;   if (event.key === "ArrowLeft" || event.key === "ArrowRight") { event.preventDefault(); turnTo(side === "graphic" ? "grip" : "graphic"); return; }
+&#x20;   if (event.key !== "Tab") return;
+&#x20;   const controls = [...(dialogRef.current?.querySelectorAll("button, a[href], input, select, textarea, [tabindex]:not([tabindex='-1'])") ?? [])].filter((node) => !(node as HTMLButtonElement).disabled) as HTMLElement[];
+&#x20;   const first = controls[0];
+&#x20;   const last = controls.at(-1);
+&#x20;   if (!first || !last) return;
+&#x20;   if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+&#x20;   else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+&#x20; };
+
+&#x20; const faces = (["graphic", "grip"] as const);
+
+&#x20; return createPortal(
+&#x20;   \<div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby={titleId} data-deck-detail className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto p-5 text-foreground sm:p-8" onKeyDown={onKeyDown}>
+&#x20;     \<div aria-hidden="true" className={\`absolute inset-0 bg-background/90 backdrop-blur-xl transition-opacity duration-300 motion-reduce:transition-none ${shown ? "opacity-100" : "opacity-0"}\`} onClick={dismiss} />
+&#x20;     \<button ref={closeRef} type="button" onClick={dismiss} className={\`absolute right-4 top-4 z-10 inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-medium tracking-wide text-muted-foreground outline-none transition-[opacity,color] duration-300 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none ${shown ? "opacity-100" : "opacity-0"}\`}>
+&#x20;       {labels.close}
+&#x20;       \<svg aria-hidden="true" viewBox="0 0 16 16" className="size-3.5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">\<path d="M3 3l10 10M13 3L3 13" />\</svg>
+&#x20;     \</button>
+&#x20;     \<div className="relative grid w-full max-w-3xl grid-cols-[auto_minmax(0,1fr)] items-center gap-5 sm:gap-12">
+&#x20;       \<div ref={figureRef} data-figure className="relative h-[min(64svh,600px)] origin-top sm:h-[min(70svh,600px)]" style={{ aspectRatio: DECK_ASPECT }}>
+&#x20;         \<span aria-hidden="true" className="absolute inset-0 translate-x-[8%] translate-y-[3%] bg-black/25 blur-xl dark:bg-black/70" style={maskStyle(mask, fallback)} />
+&#x20;         \<div
+&#x20;           className="absolute inset-0 cursor-grab touch-pan-y active:cursor-grabbing"
+&#x20;           style={{ perspective: "1200px" }}
+&#x20;           onPointerDown={(event) => { const a = angle.current; window\.clearTimeout(a.auto); a.auto = 0; a.dragging = true; a.startX = event.clientX; a.startAngle = a.value; cancelAnimationFrame(a.raf); a.raf = 0; a.last = 0; event.currentTarget.setPointerCapture(event.pointerId); }}
+&#x20;           onPointerMove={(event) => { const a = angle.current; if (!a.dragging) return; a.value = clamp(a.startAngle + (event.clientX - a.startX) \* 0.6, a.startAngle - 220, a.startAngle + 220); if (spinRef.current) spinRef.current.style.transform = \`rotateY(${a.value.toFixed(2)}deg)\`; }}
+&#x20;           onPointerUp={() => { const a = angle.current; if (!a.dragging) return; a.dragging = false; const facing = ((a.value % 360) + 360) % 360; turnTo(facing > 90 && facing < 270 ? "grip" : "graphic"); }}
+&#x20;           onPointerCancel={() => { angle.current.dragging = false; turnTo(side); }}
+&#x20;         \>
+&#x20;           \<div ref={spinRef} data-detail-spin className="absolute inset-0 [transform-style:preserve-3d]">
+&#x20;             \<div data-face="graphic" className="absolute inset-0 [backface-visibility:hidden]">
+&#x20;               {fallback ? \<FallbackArt tone={index} /> : \<img src={item.image} alt={item.name} draggable={false} className="pointer-events-none absolute inset-0 size-full select-none object-contain" />}
+&#x20;               \<Hole h={600} />
+&#x20;             \</div>
+&#x20;             \<div data-face="grip" className="absolute inset-0 [backface-visibility:hidden]" style={{ transform: "rotateY(180deg)" }}>
+&#x20;               \<GripFace uid={uid} item={item} mask={mask} fallback={fallback} tone={index} />
+&#x20;               \<Hole h={600} />
+&#x20;             \</div>
+&#x20;           \</div>
+&#x20;         \</div>
+&#x20;       \</div>
+&#x20;       \<div className={\`flex min-w-0 flex-col gap-3 transition-[opacity,transform] delay-150 duration-500 motion-reduce:transition-none ${shown ? "translate-y-0 opacity-100" : "translate-y-2 opacity-0"}\`}>
+&#x20;         \<p className="font-mono text-[11px] tracking-[0.2em] text-muted-foreground">
+&#x20;           {String(index + 1).padStart(2, "0")} / {String(total).padStart(2, "0")}{item.series ? \` · ${item.series}\` : ""}
+&#x20;         \</p>
+&#x20;         \<h3 id={titleId} className="text-balance text-xl font-medium tracking-tight sm:text-3xl">{item.name}\</h3>
+&#x20;         {(item.tag || item.width) && (
+&#x20;           \<div className="flex flex-wrap items-baseline gap-3">
+&#x20;             {item.tag && \<span className="text-lg font-semibold tabular-nums">{item.tag}\</span>}
+&#x20;             {item.width && \<span className="rounded-md border border-border px-2 py-0.5 font-mono text-xs text-muted-foreground">{item.width}\</span>}
+&#x20;           \</div>
+&#x20;         )}
+&#x20;         {item.description && \<p className="text-sm leading-relaxed text-muted-foreground">{item.description}\</p>}
+&#x20;         {item.details && item.details.length > 0 && (
+&#x20;           \<ul className="flex flex-wrap gap-1.5">
+&#x20;             {item.details.map((detail) => \<li key={detail} className="rounded-full border border-border px-2.5 py-1 text-[11px] text-muted-foreground">{detail}\</li>)}
+&#x20;           \</ul>
+&#x20;         )}
+&#x20;         \<div role="group" aria-label={\`${labels.graphic} / ${labels.grip}\`} className="mt-1 inline-flex self-start rounded-full border border-border p-1">
+&#x20;           {faces.map((face) => (
+&#x20;             \<button key={face} type="button" data-side={face} aria-pressed={side === face} onClick={() => turnTo(face)} className={\`rounded-full px-3.5 py-1.5 text-xs font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none ${side === face ? "bg-chart-1 text-foreground" : "text-muted-foreground hover:text-foreground"}\`}>
+&#x20;               {face === "graphic" ? labels.graphic : labels.grip}
+&#x20;             \</button>
+&#x20;           ))}
+&#x20;         \</div>
+&#x20;         {extra && \<div className="mt-1">{extra}\</div>}
+&#x20;       \</div>
+&#x20;     \</div>
+&#x20;   \</div>,
+&#x20;   document.body,
+&#x20; );
+}
+
+export default SkateDeckRail;
+insted of skate do shirts tshirts henley hoddies

@@ -1,477 +1,211 @@
 
-import * as THREE from "three";
-import { SVGLoader } from "three/addons/loaders/SVGLoader.js";
+/* =========================================
+   OWO ENDLESS 3D IMAGE CORRIDOR
+========================================= */
 
-// =====================================
-// OWO - KARNATAKA LUXURY 3D MAP
-// =====================================
+document.addEventListener("DOMContentLoaded", () => {
 
-const canvas = document.getElementById("owoHeroCanvas");
-const stage = document.querySelector(".hero-3d-stage");
+    const world = document.getElementById("owoEndlessWorld");
 
-if (!canvas || !stage) {
-    console.error("OWO: Canvas or 3D stage not found.");
-} else {
-    initOWOMap();
-}
+    if (!world || typeof gsap === "undefined") {
+        console.error("OWO 3D hero: GSAP or hero element missing.");
+        return;
+    }
 
-function initOWOMap() {
+    const IMAGE_URLS = [
+        "https://cdn.21st.dev/assets/mirror/49/496b84975083e207d6b9adf6898f417d9e66250a5fa0b324db7d69c24081e665.webp",
+        "https://cdn.21st.dev/assets/mirror/56/565902d9502c3c50a98cd8dc1447754d865c370597acbf789e44e061abc98e02.webp",
+        "https://cdn.21st.dev/assets/mirror/37/37149990d5ddbf0ad349dcffff6917efb95d450ff176bc7b911420a8bbce968d.webp",
+        "https://cdn.21st.dev/assets/mirror/4f/4f0af24dd1f4e5f89e5b5ae1f10b711e837c279ebf1daea092a3376a4bfb4400.webp",
+        "https://cdn.21st.dev/assets/mirror/95/9579da7038028c3ef96b8cca6a887ddb406851f37caa13a85627ce72975f16f0.webp",
+        "https://cdn.21st.dev/assets/mirror/4b/4bd8b7ff2db5fb0d805712b372dcf2820752b709b377db8ac073f65abf7591f8.webp",
+        "https://cdn.21st.dev/assets/mirror/d0/d0c716fa9bb2a2cbf7dda8f41ffdcda0aa12a5c1db1951ed093935e51377bdb0.webp",
+        "https://cdn.21st.dev/assets/mirror/d1/d1c14c08413e7d35bc090bfe4ea560c88314c9899a10fb4a1791ce3a76d6a71e.webp",
+        "https://cdn.21st.dev/assets/mirror/94/9409bb00df0c1bbb30e4e782f33b06232f39f39c9a5c4cf3e830853316be6e77.webp",
+        "https://cdn.21st.dev/assets/mirror/bf/bf54bb945a1a7d3c154146a499bbb895b0c59d48e913c2377e380aa11ee5a5c2.webp",
+        "https://cdn.21st.dev/assets/mirror/1f/1f2db3e1105e8a09b30a319647a614bfc0a6858e56a54e6a156ff0eeeb0984a7.webp",
+        "https://cdn.21st.dev/assets/mirror/74/74388f29a6841a42a35929cea6e1acff8a748a69294ea03dfe78b61e74e2fa4c.webp"
+    ];
 
-    const scene = new THREE.Scene();
+    const TOTAL = IMAGE_URLS.length;
 
-    const camera = new THREE.PerspectiveCamera(35, 1, 0.1, 100);
-    camera.position.set(0, 0, 8.5);
+    const Z_FAR = -2400;
+    const Z_NEAR = 780;
+    const RANGE = Z_NEAR - Z_FAR;
 
-    const renderer = new THREE.WebGLRenderer({
-        canvas,
-        alpha: true,
-        antialias: true
+    const DURATION = 16;
+    const FADE_IN = 0.06;
+    const FADE_OUT = 0.04;
+
+    const planes = [];
+
+    const reduceMotion = window.matchMedia(
+        "(prefers-reduced-motion: reduce)"
+    ).matches;
+
+    function opacityForProgress(progress) {
+
+        if (progress < FADE_IN) {
+            return Math.max(0, progress / FADE_IN);
+        }
+
+        if (progress > 1 - FADE_OUT) {
+            return Math.max(
+                0,
+                (1 - progress) / FADE_OUT
+            );
+        }
+
+        return 1;
+    }
+
+    // CREATE IMAGE PLANES
+
+    IMAGE_URLS.forEach((url, index) => {
+
+        const plane = document.createElement("div");
+        plane.className = "owo-endless-plane";
+
+        const img = document.createElement("img");
+        img.src = url;
+        img.alt = "";
+        img.loading = "eager";
+        img.decoding = "async";
+
+        plane.appendChild(img);
+        world.appendChild(plane);
+
+        planes.push({
+            element: plane,
+            image: img,
+            index: index
+        });
+
     });
 
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    renderer.setClearColor(0x000000, 0);
-    renderer.outputColorSpace = THREE.SRGBColorSpace;
-    renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.15;
+    // RESPONSIVE LAYOUT
 
-    // =====================================
-    // PREMIUM LIGHTING
-    // =====================================
+    function applyLayout() {
 
-    scene.add(new THREE.AmbientLight(0xffffff, 1.15));
+        const width = window.innerWidth;
 
-    const hemisphereLight = new THREE.HemisphereLight(
-        0xffffff,
-        0x202a35,
-        1.5
-    );
-    scene.add(hemisphereLight);
+        const planeW = width < 768
+            ? Math.min(width * 0.26, 200)
+            : Math.min(width * 0.26, 440);
 
-    const mainLight = new THREE.DirectionalLight(0xffffff, 2.5);
-    mainLight.position.set(3, 5, 8);
-    scene.add(mainLight);
+        const planeH = planeW * (4 / 3);
 
-    const rimLight = new THREE.PointLight(0x829bb5, 2.2, 14);
-    rimLight.position.set(-3, 1, 4);
-    scene.add(rimLight);
+        const offsetX = width * 0.33;
+        const angle = 24;
 
-    const softLight = new THREE.PointLight(0xb69a76, 0.8, 12);
-    softLight.position.set(3, -3, 3);
-    scene.add(softLight);
+        planes.forEach(({ element, index }) => {
 
-    // =====================================
-    // MAP GROUPS
-    // =====================================
+            const isLeft = index % 2 === 0;
 
-    const display = new THREE.Group();
-    scene.add(display);
+            element.style.width = `${planeW}px`;
+            element.style.height = `${planeH}px`;
 
-    const mapGroup = new THREE.Group();
-    display.add(mapGroup);
+            gsap.set(element, {
 
-    const NORTH_YELLOW = new THREE.Color("#ffd500");
-    const SOUTH_RED = new THREE.Color("#ff2525");
+                xPercent: -50,
+                yPercent: -50,
 
-    const NORTH_SPLIT = 0.44;
+                x: isLeft
+                    ? -offsetX
+                    : offsetX,
 
-    // =====================================
-    // LOAD KARNATAKA SVG
-    // =====================================
+                y: 0,
 
-    const loader = new SVGLoader();
+                rotationY: isLeft
+                    ? angle
+                    : -angle,
 
-    loader.load(
-        "./karnataka.svg",
+                force3D: true
 
-        (data) => {
-
-            console.log("OWO: Karnataka SVG loaded.");
-
-            let bestOutline = null;
-            let bestPointCount = 0;
-
-            for (const path of data.paths) {
-
-                for (const subPath of path.subPaths) {
-
-                    const outlinePoints = subPath.getPoints(4);
-
-                    if (outlinePoints.length < 10) continue;
-
-                    const bounds = new THREE.Box2().setFromPoints(outlinePoints);
-
-                    const width = bounds.max.x - bounds.min.x;
-                    const height = bounds.max.y - bounds.min.y;
-
-                    if (width <= 0 || height <= 0) continue;
-                    if (width > 850 && height > 850) continue;
-
-                    if (outlinePoints.length > bestPointCount) {
-                        bestPointCount = outlinePoints.length;
-                        bestOutline = outlinePoints;
-                    }
-                }
-            }
-
-            if (!bestOutline) {
-                console.error("OWO: Karnataka outline not found.");
-                return;
-            }
-
-            // =====================================
-            // CREATE STATE SHAPE
-            // =====================================
-
-            const outline = [...bestOutline];
-
-            if (
-                outline[0].distanceTo(
-                    outline[outline.length - 1]
-                ) < 0.001
-            ) {
-                outline.pop();
-            }
-
-            const mainShape = new THREE.Shape();
-
-            mainShape.moveTo(outline[0].x, outline[0].y);
-
-            for (let i = 1; i < outline.length; i++) {
-                mainShape.lineTo(outline[i].x, outline[i].y);
-            }
-
-            mainShape.closePath();
-
-            const points = mainShape.getPoints(600);
-
-            const bounds = new THREE.Box2().setFromPoints(points);
-
-            const minX = bounds.min.x;
-            const minY = bounds.min.y;
-            const maxX = bounds.max.x;
-            const maxY = bounds.max.y;
-
-            const centerX = (minX + maxX) / 2;
-            const centerY = (minY + maxY) / 2;
-
-            const mapWidth = maxX - minX;
-            const mapHeight = maxY - minY;
-
-            if (mapWidth <= 0 || mapHeight <= 0) {
-                console.error("OWO: Invalid map dimensions.");
-                return;
-            }
-
-            const splitY = minY + mapHeight * NORTH_SPLIT;
-
-            const thickness = mapWidth * 0.035;
-            const borderZ = thickness + mapWidth * 0.006;
-
-            // =====================================
-            // DARK METALLIC BODY
-            // =====================================
-
-            const mapGeometry = new THREE.ExtrudeGeometry(mainShape, {
-                depth: thickness,
-                bevelEnabled: true,
-                bevelThickness: mapWidth * 0.003,
-                bevelSize: mapWidth * 0.0025,
-                bevelSegments: 5,
-                curveSegments: 24
             });
 
-            mapGeometry.translate(-centerX, -centerY, 0);
+        });
 
-            const mapMaterial = new THREE.MeshPhysicalMaterial({
-                color: "#12171d",
-                metalness: 0.78,
-                roughness: 0.29,
-                clearcoat: 0.7,
-                clearcoatRoughness: 0.22,
-                side: THREE.DoubleSide
-            });
+    }
 
-            const mapMesh = new THREE.Mesh(mapGeometry, mapMaterial);
-            mapGroup.add(mapMesh);
+    applyLayout();
 
-            // =====================================
-            // SMOOTH BORDER PATH
-            // =====================================
+    gsap.set(world, { force3D: true });
 
-            const routePoints = points.map(point =>
-                new THREE.Vector3(
-                    point.x - centerX,
-                    point.y - centerY,
-                    borderZ
-                )
-            );
+    // ANIMATE PLANES
 
-            // Remove duplicate closing point.
-            if (
-                routePoints[0].distanceTo(
-                    routePoints[routePoints.length - 1]
-                ) < 0.001
-            ) {
-                routePoints.pop();
-            }
+    planes.forEach(({ element, image, index }) => {
 
-            const borderCurve = new THREE.CatmullRomCurve3(
-                routePoints,
-                true,
-                "centripetal"
-            );
+        const startProgress = index / TOTAL;
 
-            // =====================================
-            // YELLOW NORTH / RED SOUTH BORDER
-            // =====================================
+        gsap.set(element, {
+            z: Z_FAR + startProgress * RANGE
+        });
 
-            function createColouredBorder(radius, opacity, glow = false) {
+        image.style.opacity = String(
+            opacityForProgress(startProgress)
+        );
 
-                const geometry = new THREE.TubeGeometry(
-                    borderCurve,
-                    700,
-                    radius,
-                    10,
-                    true
-                );
+        element.style.zIndex = String(
+            Math.round(startProgress * 1000)
+        );
 
-                const positions = geometry.attributes.position;
-                const colours = [];
+        if (reduceMotion) return;
 
-                for (let i = 0; i < positions.count; i++) {
+        const tween = gsap.fromTo(
 
-                    const originalY = positions.getY(i) + centerY;
+            element,
 
-                    const colour = originalY < splitY
-                        ? NORTH_YELLOW
-                        : SOUTH_RED;
+            {
+                z: Z_FAR
+            },
 
-                    colours.push(
-                        colour.r,
-                        colour.g,
-                        colour.b
+            {
+
+                z: Z_NEAR,
+
+                duration: DURATION,
+
+                ease: "none",
+
+                repeat: -1,
+
+                immediateRender: false,
+
+                onUpdate() {
+
+                    const progress = this.progress();
+
+                    image.style.opacity = String(
+                        opacityForProgress(progress)
                     );
+
+                    element.style.zIndex = String(
+                        Math.round(progress * 1000)
+                    );
+
                 }
 
-                geometry.setAttribute(
-                    "color",
-                    new THREE.Float32BufferAttribute(colours, 3)
-                );
-
-                const material = new THREE.MeshBasicMaterial({
-                    vertexColors: true,
-                    transparent: glow,
-                    opacity,
-                    blending: glow
-                        ? THREE.AdditiveBlending
-                        : THREE.NormalBlending,
-                    depthWrite: !glow,
-                    toneMapped: false
-                });
-
-                const mesh = new THREE.Mesh(geometry, material);
-
-                mesh.renderOrder = glow ? 2 : 3;
-                mapGroup.add(mesh);
-
-                return mesh;
             }
 
-            // Existing layered glow preserved.
-            const outerGlow = createColouredBorder(
-                mapWidth * 0.009,
-                0.16,
-                true
-            );
+        );
 
-            const middleGlow = createColouredBorder(
-                mapWidth * 0.005,
-                0.30,
-                true
-            );
+        tween.progress(startProgress);
 
-            const mainBorder = createColouredBorder(
-                mapWidth * 0.0018,
-                1,
-                false
-            );
+    });
 
-            // =====================================
-            // MOVING WHITE LIGHT
-            // =====================================
+    // RESIZE HANDLING
 
-            const runner = new THREE.Mesh(
-                new THREE.SphereGeometry(
-                    mapWidth * 0.009,
-                    24,
-                    24
-                ),
-                new THREE.MeshBasicMaterial({
-                    color: "#ffffff",
-                    toneMapped: false
-                })
-            );
+    let resizeFrame;
 
-            const runnerGlow = new THREE.Mesh(
-                new THREE.SphereGeometry(
-                    mapWidth * 0.035,
-                    24,
-                    24
-                ),
-                new THREE.MeshBasicMaterial({
-                    color: "#ffffff",
-                    transparent: true,
-                    opacity: 0.35,
-                    blending: THREE.AdditiveBlending,
-                    depthWrite: false,
-                    toneMapped: false
-                })
-            );
+    window.addEventListener("resize", () => {
 
-            const runnerHalo = new THREE.Mesh(
-                new THREE.SphereGeometry(
-                    mapWidth * 0.065,
-                    24,
-                    24
-                ),
-                new THREE.MeshBasicMaterial({
-                    color: "#ffffff",
-                    transparent: true,
-                    opacity: 0.10,
-                    blending: THREE.AdditiveBlending,
-                    depthWrite: false,
-                    toneMapped: false
-                })
-            );
+        cancelAnimationFrame(resizeFrame);
 
-            mapGroup.add(runner, runnerGlow, runnerHalo);
+        resizeFrame = requestAnimationFrame(() => {
+            applyLayout();
+        });
 
-            // =====================================
-            // RESPONSIVE MAP SIZE AND POSITION
-            // =====================================
+    });
 
-            function updateMapScale() {
-
-                const aspect = stage.clientWidth / stage.clientHeight;
-
-                const viewHeight =
-                    2 * camera.position.z *
-                    Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
-
-                const viewWidth = viewHeight * aspect;
-
-                // Keep the complete outline visible with breathing room.
-                const scale = Math.min(
-                    viewWidth * 0.84 / mapWidth,
-                    viewHeight * 0.84 / mapHeight
-                );
-
-                mapGroup.scale.set(scale, -scale, scale);
-            }
-
-            // =====================================
-            // MOUSE MOVEMENT
-            // =====================================
-
-            let mouseX = 0;
-            let mouseY = 0;
-
-            stage.addEventListener("pointermove", event => {
-
-                const rect = stage.getBoundingClientRect();
-
-                mouseX =
-                    ((event.clientX - rect.left) / rect.width - 0.5) * 0.28;
-
-                mouseY =
-                    ((event.clientY - rect.top) / rect.height - 0.5) * 0.18;
-            });
-
-            stage.addEventListener("pointerleave", () => {
-                mouseX = 0;
-                mouseY = 0;
-            });
-
-            // =====================================
-            // RESPONSIVE CANVAS
-            // =====================================
-
-            function resize() {
-
-                const width = stage.clientWidth;
-                const height = stage.clientHeight;
-
-                if (!width || !height) return;
-
-                renderer.setSize(width, height, false);
-
-                camera.aspect = width / height;
-                camera.updateProjectionMatrix();
-
-                updateMapScale();
-            }
-
-            const resizeObserver = new ResizeObserver(resize);
-            resizeObserver.observe(stage);
-
-            resize();
-
-            // =====================================
-            // ANIMATION
-            // =====================================
-
-            const clock = new THREE.Clock();
-
-            function animate() {
-
-                requestAnimationFrame(animate);
-
-                const elapsed = clock.getElapsedTime();
-
-                display.rotation.y +=
-                    (mouseX - display.rotation.y) * 0.025;
-
-                display.rotation.x +=
-                    (-mouseY - display.rotation.x) * 0.025;
-
-                display.position.y =
-                    Math.sin(elapsed * 0.8) * 0.025;
-
-                // Border glow animation
-                outerGlow.material.opacity =
-                    0.12 + (Math.sin(elapsed * 2) + 1) * 0.055;
-
-                middleGlow.material.opacity =
-                    0.22 + (Math.sin(elapsed * 2.5) + 1) * 0.10;
-
-                // Moving light
-                const progress = (elapsed * 0.075) % 1;
-
-                const movingPosition =
-                    borderCurve.getPointAt(progress);
-
-                runner.position.copy(movingPosition);
-                runnerGlow.position.copy(movingPosition);
-                runnerHalo.position.copy(movingPosition);
-
-                runnerGlow.material.opacity =
-                    0.22 + (Math.sin(elapsed * 5) + 1) * 0.12;
-
-                runnerHalo.material.opacity =
-                    0.07 + (Math.sin(elapsed * 4) + 1) * 0.045;
-
-                renderer.render(scene, camera);
-            }
-
-            animate();
-
-            console.log("OWO: Luxury Karnataka 3D map running.");
-        },
-
-        undefined,
-
-        error => {
-            console.error("OWO: Could not load karnataka.svg.", error);
-        }
-    );
-}
+});

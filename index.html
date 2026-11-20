@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -10,16 +9,6 @@
 
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="home-3d.css">
-
-    <!-- THREE.JS IMPORT MAP -->
-    <script type="importmap">
-    {
-        "imports": {
-            "three": "./node_modules/three/build/three.module.js",
-            "three/addons/": "./node_modules/three/examples/jsm/"
-        }
-    }
-    </script>
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -72,88 +61,42 @@
 
     </header>
 
-    <!-- =====================================
-         HERO SECTION WITH 3D KARNATAKA MAP
-    ====================================== -->
+    <!-- OWO ENDLESS 3D HERO -->
+    <section class="owo-endless-hero" id="home" aria-label="OWO 3D fashion showcase">
 
-    <section class="hero hero-3d" id="home">
+        <div class="owo-endless-scene">
+            <div class="owo-endless-world" id="owoEndlessWorld"></div>
+        </div>
 
-        <!-- LEFT CONTENT -->
-        <div class="hero-content hero-3d-content">
+        <div class="owo-endless-top">
+            <span>THE NEW ERA OF PERSONAL STYLE</span>
+            <span>EST. 2026 — OWO</span>
+        </div>
 
-            <p class="eyebrow">OWO — THE SIGNATURE EDIT</p>
+        <div class="owo-endless-title">
+            <h1>OWO<span>.</span></h1>
+            <p>OWN YOUR STYLE. DEFINE YOUR WORLD.</p>
+        </div>
 
-            <h1>
-                DRESS LIKE<br>
-                <span>YOU MEAN IT.</span>
-            </h1>
+        <div class="owo-endless-footer">
 
-            <p class="hero-description">
-                Personal style has no uniform. Discover considered
-                everyday pieces, standout clothing and details
-                that make an outfit yours.
-            </p>
+            <svg viewBox="0 0 24 24" width="24" height="24"
+                 fill="none" stroke="currentColor" stroke-width="1">
+                <circle cx="12" cy="12" r="10"/>
+                <ellipse cx="12" cy="12" rx="4" ry="10"/>
+                <path d="M2 12h20M4.5 6h15M4.5 18h15"/>
+            </svg>
 
-            <div class="hero-buttons">
-
-                <a href="shop.html" class="btn btn-dark">
-                    SHOP THE COLLECTION
-                    <i class="fa-solid fa-arrow-right"></i>
-                </a>
-
-                <a href="#customize" class="btn btn-outline">
-                    MAKE IT YOURS
-                </a>
-
-            </div>
+            <p>FASHION THAT MOVES WITH YOU</p>
 
         </div>
 
-        <!-- RIGHT SIDE: 3D KARNATAKA -->
-        <div class="hero-3d-visual">
-
-            <!-- 3D MAP STAGE -->
-            <div class="hero-3d-stage">
-
-                <div class="hero-3d-glow"></div>
-
-                <!-- TOP LABEL -->
-                <div class="hero-3d-label">
-                    <span>OWO / STUDIO 001</span>
-                    <p>THE ART OF GETTING DRESSED</p>
-                </div>
-
-                <!-- THREE.JS CANVAS -->
-                <canvas
-                    id="owoHeroCanvas"
-                    aria-label="Interactive 3D Karnataka state map">
-                </canvas>
-
-            </div>
-
-            <!-- LUXURY BRAND STATEMENT BELOW MAP -->
-            <div class="karnataka-luxury-caption">
-
-                <p class="luxury-eyebrow">
-                    PROUDLY ROOTED IN KARNATAKA
-                </p>
-
-                <h2>MADE FOR THE WORLD.</h2>
-
-                <p class="luxury-subtitle">
-                    OWO — A DISTINCTIVE INDIAN IDENTITY
-                </p>
-
-            </div>
-
-        </div>
-
-        <!-- SIDE TEXT -->
-        <div class="hero-side-text">
-            PERSONAL STYLE. NO RULEBOOK.
+        <div class="owo-endless-index">
+            01 — 12 / COLLECTION
         </div>
 
     </section>
+    <!-- END OWO ENDLESS 3D HERO -->
 
     <!-- BRAND STATEMENT -->
     <section class="brand-statement" id="about">
@@ -486,8 +429,11 @@
     <!-- EXISTING WEBSITE JAVASCRIPT -->
     <script src="app.js"></script>
 
-    <!-- THREE.JS HOMEPAGE -->
-    <script type="module" src="home-3d.js"></script>
+    <!-- GSAP FOR OWO 3D IMAGE CORRIDOR -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.14.2/gsap.min.js"></script>
+
+    <!-- OWO 3D HERO -->
+    <script src="home-3d.js"></script>
 
     <!-- CUSTOMER ACCOUNT NAVIGATION -->
     <script>
